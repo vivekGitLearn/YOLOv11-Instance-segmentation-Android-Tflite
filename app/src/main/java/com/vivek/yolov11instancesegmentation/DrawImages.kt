@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.util.Log
 import androidx.core.content.ContextCompat
 import com.vivek.yolov11instancesegmentation.R
 
@@ -27,10 +28,11 @@ class DrawImages(private val context: Context) {
         val width = results.first().mask[0].size
         val height = results.first().mask.size
         val combined = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-
         results.forEach { result ->
             val colorResId = boxColors[result.box.cls % 10]
             applyTransparentOverlay(context, combined, result, colorResId)
+
+
         }
         return combined
     }

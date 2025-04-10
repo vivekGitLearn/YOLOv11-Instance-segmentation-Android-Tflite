@@ -94,6 +94,12 @@ class InstanceSegmentation(
         interpreter.close()
     }
 
+    //list all the class i model
+    fun getLabels(): List<String> {
+        return labels
+    }
+
+
     fun invoke(frame: Bitmap) {
         if (tensorWidth == 0 || tensorHeight == 0
             || numChannel == 0 || numElements == 0
@@ -141,9 +147,19 @@ class InstanceSegmentation(
         val segmentationResults = bestBoxes.map {
             SegmentationResult(
                 box = it,
+
                 mask = getFinalMask(frame.width, frame.height, it, maskProto)
             )
         }
+        // 🧠 Count instances by class name
+        val classCounts = mutableMapOf<String, Int>()
+        bestBoxes.forEach {
+            classCounts[it.clsName] = (classCounts[it.clsName] ?: 0) + 1
+        }
+
+        // 🧾 Log or display the count
+        val resultString = classCounts.entries.joinToString("\n") { "${it.key}: ${it.value}" }
+//        message("Detected cells:\n$resultString")
 
         postProcessTime = SystemClock.uptimeMillis() - postProcessTime
 
@@ -151,7 +167,8 @@ class InstanceSegmentation(
             preProcessTime = preProcessTime,
             interfaceTime = interfaceTime,
             postProcessTime = postProcessTime,
-            results = segmentationResults
+            results = segmentationResults,
+            classCounts = classCounts
         )
     }
 
@@ -298,7 +315,8 @@ class InstanceSegmentation(
             interfaceTime: Long,
             results: List<SegmentationResult>,
             preProcessTime: Long,
-            postProcessTime: Long
+            postProcessTime: Long,
+            classCounts: Map<String, Int> // 🆕 Added
         )
     }
 
