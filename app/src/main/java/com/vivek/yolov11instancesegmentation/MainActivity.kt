@@ -3,26 +3,24 @@ package com.vivek.yolov11instancesegmentation
 
 import android.Manifest
 import android.R
-import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
+import android.graphics.Color
 import android.graphics.Paint
+import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import android.view.View
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
-import android.widget.Button
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
-import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
-import android.os.SystemClock
 import com.vivek.yolov11instancesegmentation.databinding.ActivityMainBinding
 import java.time.Duration
 import java.time.LocalTime
@@ -34,14 +32,13 @@ class MainActivity : AppCompatActivity(), InstanceSegmentation.InstanceSegmentat
     private lateinit var drawImages: DrawImages
     private var selectedModel ="best_float16.tflite"
     private val VIDEO_PICK_CODE = 2001
-    public var video_mode = 0
-    public var total_processed_frame =0
-//    private lateinit var pickVideoLauncher: ActivityResultLauncher<String>
+    private var video_mode = 0
+    private var total_processed_frame =0
     private var total_rbc = 0
     private var total_wbc = 0
     private var total_platelet = 0
     private  var Start_time = LocalTime.now()
-
+    private var showVideoWithOverlay = false
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -56,44 +53,40 @@ class MainActivity : AppCompatActivity(), InstanceSegmentation.InstanceSegmentat
         // Initialize DrawImages
         drawImages = DrawImages(applicationContext)
 
-//        // Initialize YOLOv11 model for instance segmentation
-//        instanceSegmentation = InstanceSegmentation(
-//            context = applicationContext,
-//            modelPath = selectedModel,
-//            labelPath = null,
-//            instanceSegmentationListener = this,
-//            message = {
-//                Toast.makeText(applicationContext, it, Toast.LENGTH_SHORT).show()
-//            },
-//        )
-
         // Request permissions
         checkPermission()
 
-//        pickVideoLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
-//            uri?.let {
-//                binding.ivTopVideo.setVideoURI(it)
-//                binding.ivTopVideo.setOnPreparedListener { mediaPlayer ->
-//                    mediaPlayer.isLooping = false
-//
-//                    binding.ivTopVideo.start()
-//                }
-//
-//                // 🧠 Process the video frames
-//                processVideo(it)
-//            }
-//        }
 
 
-////        Setup button to select image from API
-//        binding.ApiButton.setOnClickListener {
-//            pickImageURLLauncher.launch("image/*")
-//        }
+        binding.videoSwitch.setOnCheckedChangeListener { _, isChecked ->
+            if (isChecked) {
+                binding.videoSwitch.text ="SREAMING ON"
+                binding.videoSwitch.setTextColor(Color.GREEN)
+                showVideoWithOverlay = true
+//                Log.d("videoSwitch", "onCreate:$showVideoWithOverlay ")
+                binding.ivTop.visibility = View.VISIBLE
+                binding.ivTopVideo.visibility = View.GONE
+            }
+            else{
+                binding.videoSwitch.text ="SREAMING OFF"
+                binding.videoSwitch.setTextColor(Color.RED)
+                showVideoWithOverlay = false
+                binding.ivTop.visibility = View.GONE
+                binding.ivTopVideo.visibility = View.GONE
+//                Log.d("videoSwitch", "onCreate:$showVideoWithOverlay ")
+            }
+            }
 
         // Set up button to select image from gallery
         binding.buttonSelectImage.setOnClickListener {
-            binding.ivTop.visibility = View.VISIBLE
-            binding.ivTopVideo.visibility = View.GONE
+            if(showVideoWithOverlay) {
+                binding.ivTop.visibility = View.VISIBLE
+                binding.ivTopVideo.visibility = View.GONE
+            }
+            else{
+                binding.ivTop.visibility = View.GONE
+                binding.ivTopVideo.visibility = View.GONE
+            }
             video_mode = 0
 
             pickImageLauncher.launch("image/*")
@@ -101,13 +94,18 @@ class MainActivity : AppCompatActivity(), InstanceSegmentation.InstanceSegmentat
         }
         // Set up button to select video from gallery
         binding.buttonSelectVideo.setOnClickListener {
-            binding.ivTop.visibility = View.VISIBLE
+            if(showVideoWithOverlay) {
+                binding.ivTop.visibility = View.VISIBLE
+            }
+            else{
+                binding.ivTop.visibility = View.GONE
+            }
 //            binding.ivTopVideo.visibility = View.VISIBLE
 //            binding.previewView.visibility = View.VISIBLE
 
 
             video_mode = 1
-//            total_processed_frame =0
+            total_processed_frame =0
             pickVideoLauncher.launch("video/*")
         }
 
@@ -171,18 +169,7 @@ class MainActivity : AppCompatActivity(), InstanceSegmentation.InstanceSegmentat
             }
         }
     }
-//    private val pickVideoLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-//        uri?.let {
-//            try {
-//                val inputStream = contentResolver.openInputStream(it)
-//                selectedBaseBitmap = BitmapFactory.decodeStream(inputStream)
-//                inputStream?.close()
-//                selectedBaseBitmap?.let { bitmap -> processImage(bitmap) }
-//            } catch (e: Exception) {
-//                Toast.makeText(this, "Failed to load image", Toast.LENGTH_SHORT).show()
-//            }
-//        }
-//    }
+
 private val pickVideoLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
     uri?.let {
         binding.ivTopVideo.setVideoURI(it)
@@ -197,29 +184,16 @@ private val pickVideoLauncher = registerForActivityResult(ActivityResultContract
     }
 }
 
-
-    private val pickImageURLLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        uri?.let {
-            try {
-                val inputStream = contentResolver.openInputStream(it)
-                selectedBaseBitmap = BitmapFactory.decodeStream(inputStream)  // Store selected base image
-                inputStream?.close()
-                selectedBaseBitmap?.let { bitmap -> processImage(bitmap) }  // Pass image for processing
-            } catch (e: Exception) {
-                Toast.makeText(this, "Failed to load image", Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
-
-
-
     // Process selected image
     private fun processImage(bitmap: Bitmap) {
         total_rbc = 0
         total_wbc = 0
         total_platelet = 0
         val scaledBitmap = Bitmap.createScaledBitmap(bitmap, 256, 256, true) // Resize if needed
-        instanceSegmentation.invoke(scaledBitmap)
+        if(showVideoWithOverlay)
+            instanceSegmentation.invoke1(scaledBitmap)
+        else
+            instanceSegmentation.invoke(scaledBitmap)
     }
 
     override fun onError(error: String) {
@@ -229,9 +203,9 @@ private val pickVideoLauncher = registerForActivityResult(ActivityResultContract
         }
     }
 
-    override fun onDetect(
+    override fun onDetectWithoutImage(
         interfaceTime: Long,
-        results: List<SegmentationResult>,
+//        results: List<SegmentationResult>,
         preProcessTime: Long,
         postProcessTime: Long,
         classCounts: Map<String, Int>
@@ -246,14 +220,6 @@ private val pickVideoLauncher = registerForActivityResult(ActivityResultContract
         total_wbc = total_wbc + wbcCount
         total_platelet = total_platelet + plateletCount
 
-        val overlayBitmap = drawImages.invoke(results)  // Output image from segmentation
-        val finalImage = overlayImages(selectedBaseBitmap!!, overlayBitmap)  // Merge base and overlay images
-        // Get screen width
-        val screenWidth = resources.displayMetrics.widthPixels
-
-        // Resize finalImage to screen width (both width and height)
-        val resizedFinalImage = Bitmap.createScaledBitmap(finalImage, screenWidth, screenWidth, true)
-        
 //        get label
         val label = instanceSegmentation.getLabels()
         Log.d("MainActivity", "onDetect:clss name $classCounts ")
@@ -264,13 +230,50 @@ private val pickVideoLauncher = registerForActivityResult(ActivityResultContract
             binding.tvInference.text = interfaceTime.toString()
             binding.tvPostprocess.text = postProcessTime.toString()
             binding.resultModel.text = message_cell_count
+        }
 
-//            binding.ivTop.setImageBitmap(finalImage)
-            if (video_mode != 1)
-                binding.ivTop.setImageBitmap(resizedFinalImage)
-            else
-                binding.ivTop.setImageBitmap(resizedFinalImage)
+    }
 
+    override fun onDetect(
+        interfaceTime: Long,
+        results: List<SegmentationResult>,
+        preProcessTime: Long,
+        postProcessTime: Long,
+        classCounts: Map<String, Int>
+    ) {
+
+        val rbcCount = classCounts["rbc"] ?: 0
+        val wbcCount = classCounts["wbc"] ?: 0
+        val plateletCount = classCounts["platelet"] ?: 0
+
+        total_rbc = total_rbc + rbcCount
+        total_wbc = total_wbc + wbcCount
+        total_platelet = total_platelet + plateletCount
+        if(showVideoWithOverlay) {
+            val overlayBitmap = drawImages.invoke(results)  // Output image from segmentation
+            val finalImage =
+                overlayImages(selectedBaseBitmap!!, overlayBitmap)  // Merge base and overlay images
+            // Get screen width
+            val screenWidth = resources.displayMetrics.widthPixels
+
+            // Resize finalImage to screen width (both width and height)
+            val resizedFinalImage =
+                Bitmap.createScaledBitmap(finalImage, screenWidth, screenWidth, true)
+
+            runOnUiThread {
+                    binding.ivTop.setImageBitmap(resizedFinalImage)
+            }
+        }
+        //  get label
+        val label = instanceSegmentation.getLabels()
+        Log.d("MainActivity", "onDetect:clss name $classCounts ")
+        val message_cell_count = "Rcb: $total_rbc Wbc: $total_wbc Platelet: $total_platelet"
+
+        runOnUiThread {
+            binding.tvPreprocess.text = preProcessTime.toString()
+            binding.tvInference.text = interfaceTime.toString()
+            binding.tvPostprocess.text = postProcessTime.toString()
+            binding.resultModel.text = message_cell_count
         }
 
     }
@@ -317,6 +320,7 @@ private val pickVideoLauncher = registerForActivityResult(ActivityResultContract
 
         return resultBitmap
     }
+
     private fun processVideo(uri: Uri) {
         val retriever = android.media.MediaMetadataRetriever()
         retriever.setDataSource(applicationContext, uri)
@@ -326,10 +330,10 @@ private val pickVideoLauncher = registerForActivityResult(ActivityResultContract
             retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull()
                 ?: 0L
         val frameRate =30
-        val estimatedFrameCount = (duration/1000) * frameRate
-        binding.totalFrameCount.text = estimatedFrameCount.toString()
+        val estimatedFrameCount = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_VIDEO_FRAME_COUNT)?.toLongOrNull()
+//        binding.totalFrameCount.text = estimatedFrameCount.toString()
 
-        val frameIntervalMs = 210L // 1000L = 1 second interval
+        val frameIntervalMs = 70L // 1000L = 1 second interval
         total_processed_frame = 0
 
         total_rbc = 0
@@ -338,26 +342,44 @@ private val pickVideoLauncher = registerForActivityResult(ActivityResultContract
 
         Thread {
             var timeMs = 0L
-            while (timeMs < duration) {
-                val frameBitmap =
-                    retriever.getFrameAtTime(timeMs * 1000, android.media.MediaMetadataRetriever.OPTION_CLOSEST)
-                frameBitmap?.let {
+            var total_frame = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_VIDEO_FRAME_COUNT)?.toLongOrNull()
+
+            runOnUiThread{
+                binding.totalFrameCount.text = total_frame.toString()
+            }
+
+            Log.d("duration", "processVideo: $duration ")
+//            while (timeMs < duration) {
+            while (total_processed_frame < total_frame!!) {
+//                val frameBitmap =
+//                    retriever.getFrameAtTime(timeMs * 1000, android.media.MediaMetadataRetriever.OPTION_CLOSEST)
+                val frameBitmapIndex  =retriever.getFrameAtIndex(total_processed_frame, MediaMetadataRetriever.BitmapParams())
+//                frameBitmap?.let {
+                frameBitmapIndex?.let {
                     val scaledBitmap = Bitmap.createScaledBitmap(it, 256, 256, true)
                     selectedBaseBitmap = scaledBitmap // for overlay
-                    runOnUiThread {
-                        instanceSegmentation.invoke(scaledBitmap)
+                    if(showVideoWithOverlay) {
+                        runOnUiThread {
+                            instanceSegmentation.invoke1(scaledBitmap)
+                        }
+                    }
+                    else{
+                        runOnUiThread {
+                            instanceSegmentation.invoke(scaledBitmap)
+                        }
                     }
                         total_processed_frame+=1
                     runOnUiThread {
 //                        binding.totalFrameRead.text = total_processed_frame.toString()
-                        binding.totalFrameProcessed.text = timeMs.toString()
+                        binding.totalFrameProcessed.text = total_processed_frame.toString()
                         binding.videoStopTime.text = Duration.between(Start_time, LocalTime.now()).toMinutes().toString()
 //                        binding.videoStartTime.text = Duration.between(Start_time, LocalTime.now()).seconds.toString()
                     }
                     Thread.sleep(frameIntervalMs) // wait before processing next frame
 //                    binding.totalFrameRead.text = timeMs.toString()
                 }
-                timeMs = timeMs+1
+//                frame_index=frame_index+1
+                timeMs = timeMs+33
             }
             retriever.release()
         }.start()

@@ -3,6 +3,7 @@ package com.vivek.yolov11instancesegmentation
 import android.content.Context
 import android.graphics.Bitmap
 import android.os.SystemClock
+import android.util.Log
 import com.vivek.yolov11instancesegmentation.ImageUtils.clone
 import com.vivek.yolov11instancesegmentation.ImageUtils.scaleMask
 import com.vivek.yolov11instancesegmentation.MetaData.extractNamesFromLabelFile
@@ -48,6 +49,7 @@ class InstanceSegmentation(
         interpreter = Interpreter(model, options)
 
         labels.addAll(extractNamesFromMetadata(model))
+        Log.d("model metadata", ":this is model metadata ${labels} ")
         if (labels.isEmpty()) {
             if (labelPath == null) {
                 message("Model not contains metadata, provide LABELS_PATH in Constants.kt")
@@ -58,8 +60,8 @@ class InstanceSegmentation(
         }
 
         val inputShape = interpreter.getInputTensor(0)?.shape()
-        val outputShape0 = interpreter.getOutputTensor(0)?.shape()
-        val outputShape1 = interpreter.getOutputTensor(1)?.shape()
+        val outputShape0 = interpreter.getOutputTensor(0)?.shape() //Boxes
+        val outputShape1 = interpreter.getOutputTensor(1)?.shape() //Masks
 
         if (inputShape != null) {
             tensorWidth = inputShape[1]
@@ -99,7 +101,7 @@ class InstanceSegmentation(
         return labels
     }
 
-
+    //invoke does not return image
     fun invoke(frame: Bitmap) {
         if (tensorWidth == 0 || tensorHeight == 0
             || numChannel == 0 || numElements == 0
@@ -141,16 +143,11 @@ class InstanceSegmentation(
             instanceSegmentationListener.onEmpty()
             return
         }
+//        Log.d("bestBoxes", "invoke: bestBoxes $bestBoxes")
 
         val maskProto = reshapeMaskOutput(maskProtoBuffer.floatArray)
 
-        val segmentationResults = bestBoxes.map {
-            SegmentationResult(
-                box = it,
 
-                mask = getFinalMask(frame.width, frame.height, it, maskProto)
-            )
-        }
         // 🧠 Count instances by class name
         val classCounts = mutableMapOf<String, Int>()
         bestBoxes.forEach {
@@ -160,6 +157,83 @@ class InstanceSegmentation(
         // 🧾 Log or display the count
         val resultString = classCounts.entries.joinToString("\n") { "${it.key}: ${it.value}" }
 //        message("Detected cells:\n$resultString")
+
+        postProcessTime = SystemClock.uptimeMillis() - postProcessTime
+
+        instanceSegmentationListener.onDetectWithoutImage(
+            preProcessTime = preProcessTime,
+            interfaceTime = interfaceTime,
+            postProcessTime = postProcessTime,
+
+            classCounts = classCounts
+        )
+    }
+//invoke return image
+    fun invoke1(frame: Bitmap) {
+        if (tensorWidth == 0 || tensorHeight == 0
+            || numChannel == 0 || numElements == 0
+            || xPoints == 0 || yPoints == 0 || masksNum == 0) {
+            instanceSegmentationListener.onError("Interpreter not initialized properly")
+            return
+        }
+
+        var preProcessTime = SystemClock.uptimeMillis()
+
+        val imageBuffer = preProcess(frame)
+
+        val coordinatesBuffer = TensorBuffer.createFixedSize(
+
+            intArrayOf(1 , numChannel, numElements),
+            OUTPUT_IMAGE_TYPE
+        )
+
+        val maskProtoBuffer = TensorBuffer.createFixedSize(
+            intArrayOf(1, xPoints, yPoints, masksNum),
+            OUTPUT_IMAGE_TYPE
+        )
+
+        val outputBuffer = mapOf<Int, Any>(
+            0 to coordinatesBuffer.buffer.rewind(),
+            1 to maskProtoBuffer.buffer.rewind()
+        )
+
+        preProcessTime = SystemClock.uptimeMillis() - preProcessTime
+
+        var interfaceTime = SystemClock.uptimeMillis()
+
+        interpreter.runForMultipleInputsOutputs(imageBuffer, outputBuffer)
+
+        interfaceTime = SystemClock.uptimeMillis() - interfaceTime
+
+        var postProcessTime = SystemClock.uptimeMillis()
+
+        val bestBoxes = bestBox(coordinatesBuffer.floatArray) ?: run {
+            instanceSegmentationListener.onEmpty()
+            return
+        }
+        //Log.d("bestBoxes", "invoke: bestBoxes $bestBoxes")
+
+        val maskProto = reshapeMaskOutput(maskProtoBuffer.floatArray)
+
+        //Log.d("maskProto", "invoke: $maskProto")
+
+        val segmentationResults = bestBoxes.map {
+            SegmentationResult(
+                box = it,
+
+                mask = getFinalMask(frame.width, frame.height, it, maskProto)
+            )
+        }
+        //Log.d("SegmentationResult", "invoke:$segmentationResults ")
+        // 🧠 Count instances by class name
+        val classCounts = mutableMapOf<String, Int>()
+        bestBoxes.forEach {
+            classCounts[it.clsName] = (classCounts[it.clsName] ?: 0) + 1
+        }
+
+        // 🧾 Log or display the count
+        val resultString = classCounts.entries.joinToString("\n") { "${it.key}: ${it.value}" }
+        //  message("Detected cells:\n$resultString")
 
         postProcessTime = SystemClock.uptimeMillis() - postProcessTime
 
@@ -311,6 +385,12 @@ class InstanceSegmentation(
     interface InstanceSegmentationListener {
         fun onError(error: String)
         fun onEmpty()
+        fun onDetectWithoutImage(
+            interfaceTime: Long,
+            preProcessTime: Long,
+            postProcessTime: Long,
+            classCounts: Map<String, Int> // 🆕 Added
+        )
         fun onDetect(
             interfaceTime: Long,
             results: List<SegmentationResult>,
