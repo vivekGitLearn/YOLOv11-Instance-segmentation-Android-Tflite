@@ -74,6 +74,19 @@
             app:layout_constraintTop_toBottomOf="@+id/buttonSelectImage"
             app:layout_constraintVertical_bias="0.531" />
     </LinearLayout>
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="16dp"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/ApiButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Load Image From Api"            />
+
+    </LinearLayout>
 
     <!-- Camera Preview -->
 
@@ -284,6 +297,36 @@
                     android:layout_height="wrap_content"
                     android:textStyle="bold" />
             </LinearLayout>
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Websocket ID: "
+                android:textStyle="bold"/>
+            <TextView
+                android:id="@+id/websocket_id"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textStyle="bold" />
+        </LinearLayout>
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Message: "
+                android:textStyle="bold"/>
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:id="@+id/ws_message"
+                android:textStyle="bold" />
+        </LinearLayout>
 <!--            &lt;!&ndash;            <LinearLayout&ndash;&gt;-->
 <!--            &lt;!&ndash;                android:layout_width="wrap_content"&ndash;&gt;-->
 <!--            &lt;!&ndash;                android:layout_height="wrap_content"&ndash;&gt;-->

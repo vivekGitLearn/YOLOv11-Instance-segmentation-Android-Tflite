@@ -21,12 +21,29 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
+import androidx.lifecycle.lifecycleScope
+import com.bumptech.glide.Glide
 import com.vivek.yolov11instancesegmentation.databinding.ActivityMainBinding
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import java.io.InputStream
+import java.net.HttpURLConnection
+import java.net.URL
 import java.time.Duration
 import java.time.LocalTime
+import kotlin.math.log
+import okhttp3.*
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONObject
+import java.io.IOException
+import java.util.UUID
+import android.content.res.AssetManager
+import  android.content.Context
+import okio.ByteString
 
 
-class MainActivity : AppCompatActivity(), InstanceSegmentation.InstanceSegmentationListener {
+class MainActivity : AppCompatActivity(), WebSocketMessageListener,InstanceSegmentation.InstanceSegmentationListener {
     private lateinit var binding: ActivityMainBinding
     private lateinit var instanceSegmentation: InstanceSegmentation
     private lateinit var drawImages: DrawImages
@@ -39,13 +56,23 @@ class MainActivity : AppCompatActivity(), InstanceSegmentation.InstanceSegmentat
     private var total_platelet = 0
     private  var Start_time = LocalTime.now()
     private var showVideoWithOverlay = false
-
-
+    private val client = OkHttpClient()
+    var fileName = "Unknown"
+    var all_model_list: MutableList<String> = mutableListOf()
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
         enableEdgeToEdge()
+
+
+//        Set client id
+        val clientId = getOrCreateClientId(this)
+        Log.d("CLIENT_ID", "Generated or fetched client ID: $clientId")
+        binding.websocketId.text =clientId.toString()
+        val webSocketClient = CustomWebSocketClient(this, clientId)
+        webSocketClient.connect()
+
 
 
         // Initialize Model Selection Dropdown (Spinner)
@@ -76,6 +103,26 @@ class MainActivity : AppCompatActivity(), InstanceSegmentation.InstanceSegmentat
 //                Log.d("videoSwitch", "onCreate:$showVideoWithOverlay ")
             }
             }
+
+//        Botton to select image from APIS
+        binding.ApiButton.setOnClickListener {
+            if (showVideoWithOverlay) {
+                binding.ivTop.visibility = View.VISIBLE
+                binding.ivTopVideo.visibility = View.GONE
+            } else {
+                binding.ivTop.visibility = View.GONE
+                binding.ivTopVideo.visibility = View.GONE
+            }
+
+            video_mode = 0
+            // Inside your onClick or wherever you're calling fetchImage
+            lifecycleScope.launch(Dispatchers.IO) {
+                fetchImage()
+            }
+
+
+        }
+
 
         // Set up button to select image from gallery
         binding.buttonSelectImage.setOnClickListener {
@@ -114,7 +161,11 @@ class MainActivity : AppCompatActivity(), InstanceSegmentation.InstanceSegmentat
 
     // Setup model selection spinner
     private fun setupModelSpinner() {
-        val modelList = listOf("best_float16.tflite", "best_float32.tflite")
+
+        val modelList = assets.list("")?.filter { it.endsWith(".tflite") || it.endsWith(".pt") } ?: listOf()
+
+//        val modelList = listOf("best_float16.tflite", "best_float32.tflite")
+        all_model_list = modelList.toMutableList()
         val adapter = ArrayAdapter(this, R.layout.simple_spinner_dropdown_item, modelList)
         binding.spinnerModels.adapter = adapter
 
@@ -170,7 +221,7 @@ class MainActivity : AppCompatActivity(), InstanceSegmentation.InstanceSegmentat
         }
     }
 
-private val pickVideoLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+    private val pickVideoLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
     uri?.let {
         binding.ivTopVideo.setVideoURI(it)
         binding.ivTopVideo.setOnPreparedListener { mediaPlayer ->
@@ -183,6 +234,37 @@ private val pickVideoLauncher = registerForActivityResult(ActivityResultContract
 
     }
 }
+    private fun fetchImage(){
+        try{
+
+            val url: URL = URL("http://192.168.1.5:8000/get-task/")
+            val connection = url.openConnection() as HttpURLConnection
+            connection.doInput = true
+            connection.connect()
+            // 🔹 Content-Disposition (may include filename if server sets it)
+            val contentDisposition = connection.getHeaderField("Content-Disposition")
+            if (contentDisposition != null && contentDisposition.contains("filename=")) {
+                val parts = contentDisposition.split("filename=")
+                if (parts.size > 1) {
+                    fileName = parts[1].replace("\"", "").trim()
+                }
+            }
+
+            val input: InputStream = connection.inputStream
+            selectedBaseBitmap = BitmapFactory.decodeStream(input)
+//            runOnUiThread{binding.ivTop.setImageBitmap(selectedBaseBitmap)}
+//            selectedBaseBitmap = BitmapFactory.decodeStream(input)
+            selectedBaseBitmap?.let { bitmap -> processImage(bitmap) }
+
+        }
+        catch (E:Exception){
+            E.printStackTrace()
+            Log.d("Fetch image", "fetchImage:${E.message} ")
+            runOnUiThread {
+                Toast.makeText(applicationContext, "Failed to load image", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
 
     // Process selected image
     private fun processImage(bitmap: Bitmap) {
@@ -275,6 +357,7 @@ private val pickVideoLauncher = registerForActivityResult(ActivityResultContract
             binding.tvPostprocess.text = postProcessTime.toString()
             binding.resultModel.text = message_cell_count
         }
+        postJsonToServer(fileName, total_rbc, total_wbc, total_platelet)
 
     }
 
@@ -333,7 +416,7 @@ private val pickVideoLauncher = registerForActivityResult(ActivityResultContract
         val estimatedFrameCount = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_VIDEO_FRAME_COUNT)?.toLongOrNull()
 //        binding.totalFrameCount.text = estimatedFrameCount.toString()
 
-        val frameIntervalMs = 70L // 1000L = 1 second interval
+        var frameIntervalMs = 70L // 1000L = 1 second interval
         total_processed_frame = 0
 
         total_rbc = 0
@@ -359,11 +442,13 @@ private val pickVideoLauncher = registerForActivityResult(ActivityResultContract
                     val scaledBitmap = Bitmap.createScaledBitmap(it, 256, 256, true)
                     selectedBaseBitmap = scaledBitmap // for overlay
                     if(showVideoWithOverlay) {
+                        frameIntervalMs = 230L
                         runOnUiThread {
                             instanceSegmentation.invoke1(scaledBitmap)
                         }
                     }
                     else{
+                        frameIntervalMs = 70L
                         runOnUiThread {
                             instanceSegmentation.invoke(scaledBitmap)
                         }
@@ -385,7 +470,50 @@ private val pickVideoLauncher = registerForActivityResult(ActivityResultContract
         }.start()
 
     }
+    private fun postJsonToServer(Filename: String,Rbc: Int, Wbc: Int, Platelet: Int) {
+        val url = "http://192.168.1.5:8000/append-json"
 
+        // Build your JSON object
+        val json = JSONObject().apply {
+            put("filename", Filename)
+            put("rbc", Rbc)
+            put("wbc", Wbc)
+            put("platelet", Platelet)
+        }
+
+        val mediaType = "application/json; charset=utf-8".toMediaType()
+        val requestBody = json.toString().toRequestBody(mediaType)
+
+        val request = Request.Builder()
+            .url(url)
+            .post(requestBody)
+            .build()
+
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                e.printStackTrace()
+                runOnUiThread {
+                    Toast.makeText(applicationContext, "Failed to send JSON", Toast.LENGTH_SHORT).show()
+                }
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                response.use {
+                    if (!response.isSuccessful) {
+                        runOnUiThread {
+                            Toast.makeText(applicationContext, "Server error: ${response.code}", Toast.LENGTH_SHORT).show()
+                        }
+                    } else {
+                        val responseBody = response.body?.string()
+                        Log.d("POST_JSON", "Response: $responseBody")
+                        runOnUiThread {
+                            Toast.makeText(applicationContext, "JSON sent successfully!", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+            }
+        })
+    }
 
 
     private val requestPermissionLauncher = registerForActivityResult(
@@ -396,5 +524,39 @@ private val pickVideoLauncher = registerForActivityResult(ActivityResultContract
             Toast.makeText(this, "Permission required", Toast.LENGTH_LONG).show()
         }
     }
+
+
+    fun getOrCreateClientId(context: Context): String {
+        val sharedPref = context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+        var clientId = sharedPref.getString("client_id", null)
+
+        if (clientId == null) {
+            clientId = UUID.randomUUID().toString() // Generate unique ID
+            sharedPref.edit().putString("client_id", clientId).apply()
+        }
+
+        return clientId
+    }
+
+    // 👇 Callback method from WebSocket
+    override fun onTextMessage(message: String) {
+        Log.d("main activity", "onTextMessage:$message ")
+        runOnUiThread {
+            binding.wsMessage.text = message
+
+            val index = all_model_list.indexOfFirst { it.equals(message, ignoreCase = true) }
+            if (index != -1) {
+                binding.spinnerModels.setSelection(index)
+                selectedModel = all_model_list[index]
+                initializeSegmentationModel()
+
+                Toast.makeText(this, "✅ Model '$message' selected", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(this, "❌ Model '$message' not found in list", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+
 }
 

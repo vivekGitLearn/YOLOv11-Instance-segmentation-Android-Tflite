@@ -62,5 +62,13 @@ dependencies {
     implementation("androidx.camera:camera-lifecycle:$cameraxVersion")
     implementation("androidx.camera:camera-view:$cameraxVersion")
 
+    implementation(platform("androidx.compose:compose-bom:2025.02.00"))
+    implementation("com.github.bumptech.glide:compose:1.0.0-beta01")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("org.java-websocket:Java-WebSocket:1.5.3")
+
+
+
+
 
 }
