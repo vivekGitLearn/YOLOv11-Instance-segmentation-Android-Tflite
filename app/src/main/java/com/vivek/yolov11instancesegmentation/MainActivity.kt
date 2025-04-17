@@ -40,6 +40,7 @@ import java.io.IOException
 import java.util.UUID
 import android.content.res.AssetManager
 import  android.content.Context
+import kotlinx.coroutines.CoroutineScope
 import okio.ByteString
 
 
@@ -234,6 +235,45 @@ class MainActivity : AppCompatActivity(), WebSocketMessageListener,InstanceSegme
 
     }
 }
+
+
+
+    private fun fetchImage(url:URL){
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+
+                val url: URL = url
+                val connection = url.openConnection() as HttpURLConnection
+                connection.doInput = true
+                connection.connect()
+                // 🔹 Content-Disposition (may include filename if server sets it)
+                val contentDisposition = connection.getHeaderField("Content-Disposition")
+                if (contentDisposition != null && contentDisposition.contains("filename=")) {
+                    val parts = contentDisposition.split("filename=")
+                    if (parts.size > 1) {
+                        fileName = parts[1].replace("\"", "").trim()
+                    }
+                }
+
+                val input: InputStream = connection.inputStream
+                selectedBaseBitmap = BitmapFactory.decodeStream(input)
+//            runOnUiThread{binding.ivTop.setImageBitmap(selectedBaseBitmap)}
+//            selectedBaseBitmap = BitmapFactory.decodeStream(input)
+                selectedBaseBitmap?.let { bitmap -> processImage(bitmap) }
+
+            } catch (E: Exception) {
+                E.printStackTrace()
+                Log.d("Fetch image", "fetchImage:${E.message} ")
+                runOnUiThread {
+                    Toast.makeText(applicationContext, "Failed to load image", Toast.LENGTH_SHORT)
+                        .show()
+                }
+            }
+        }
+    }
+
+
+
     private fun fetchImage(){
         try{
 
@@ -556,7 +596,38 @@ class MainActivity : AppCompatActivity(), WebSocketMessageListener,InstanceSegme
             }
         }
     }
+    // ✅ Called when a job is assigned from backend
+    override fun onAssignJob(
+        jobId: String,
+        modelName: String,
+        modelUrl: String,
+        modelHash: String,
+        imageUrl: String,
+        returnType: String,
+        returnUrl: String
+    ) {
+        Log.d("MainActivity", "🛠 Assigned Job: $jobId")
+        Log.d("MainActivity", "modelName: $modelName")
+        Log.d("MainActivity", "modelUrl: $modelUrl")
+        Log.d("MainActivity", "modelHash: $modelHash")
+        Log.d("MainActivity", "imageUrl: $imageUrl")
 
+        runOnUiThread {
+            val index = all_model_list.indexOfFirst { it.equals(modelName, ignoreCase = true) }
+            if (index != -1) {
+                binding.spinnerModels.setSelection(index)
+                selectedModel = all_model_list[index]
+                initializeSegmentationModel()
+
+                Toast.makeText(this, "✅ Model '$modelName' selected", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(this, "❌ Model '$modelName' not found in list", Toast.LENGTH_SHORT).show()
+            }
+
+        }
+        fetchImage(URL(imageUrl))
+        // TODO: Start background work to download model/image and do inference
+    }
 
 }
 
