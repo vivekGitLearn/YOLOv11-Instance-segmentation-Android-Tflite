@@ -42,6 +42,8 @@ import android.content.res.AssetManager
 import  android.content.Context
 import kotlinx.coroutines.CoroutineScope
 import okio.ByteString
+import java.io.File
+import java.io.FileOutputStream
 
 
 class MainActivity : AppCompatActivity(), WebSocketMessageListener,InstanceSegmentation.InstanceSegmentationListener {
@@ -612,6 +614,23 @@ class MainActivity : AppCompatActivity(), WebSocketMessageListener,InstanceSegme
         Log.d("MainActivity", "modelHash: $modelHash")
         Log.d("MainActivity", "imageUrl: $imageUrl")
 
+
+        //Download the model
+        downloadModelToLocal(this, modelUrl, modelName) { modelFile ->
+            if (modelFile != null) {
+                runOnUiThread {
+                    Toast.makeText(this, "✅ Model downloaded to ${modelFile.absolutePath}", Toast.LENGTH_SHORT).show()
+                    Log.d("MainActivity", "Model file path: ${modelFile.absolutePath}")
+                    // TODO: Load model for inference from modelFile.absolutePath
+                }
+            } else {
+                runOnUiThread {
+                    Toast.makeText(this, "❌ Failed to download model", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+
+
         runOnUiThread {
             val index = all_model_list.indexOfFirst { it.equals(modelName, ignoreCase = true) }
             if (index != -1) {
@@ -628,6 +647,55 @@ class MainActivity : AppCompatActivity(), WebSocketMessageListener,InstanceSegme
         fetchImage(URL(imageUrl))
         // TODO: Start background work to download model/image and do inference
     }
+
+//    download model
+fun downloadModelToLocal(context: Context, modelUrl: String, modelFileName: String, onComplete: (File?) -> Unit) {
+    val client = OkHttpClient()
+    val request = Request.Builder().url(modelUrl).build()
+
+    client.newCall(request).enqueue(object : Callback {
+        override fun onFailure(call: Call, e: IOException) {
+            Log.e("ModelDownload", "❌ Failed to download model", e)
+            onComplete(null)
+        }
+
+        override fun onResponse(call: Call, response: Response) {
+            if (!response.isSuccessful) {
+                Log.e("ModelDownload", "❌ HTTP Error: ${response.code}")
+                onComplete(null)
+                return
+            }
+
+            val modelDir = File(context.filesDir, "models")
+            if (!modelDir.exists()) modelDir.mkdirs()
+
+            val outFile = File(modelDir, modelFileName)
+            val inputStream = response.body?.byteStream()
+
+            try {
+                inputStream?.use { input ->
+                    FileOutputStream(outFile).use { output ->
+                        input.copyTo(output)
+                    }
+                }
+                Log.d("ModelDownload", "✅ Model saved at: ${outFile.absolutePath}")
+                onComplete(outFile)
+            } catch (e: Exception) {
+                Log.e("ModelDownload", "❌ Error saving model", e)
+                onComplete(null)
+            }
+            if (modelDir.exists() && modelDir.isDirectory) {
+                val files = modelDir.listFiles()
+                files?.forEach {
+                    Log.d("ModelDirectory", "📁 File: ${it.name}")
+                }
+            } else {
+                Log.e("ModelDirectory", "❌ Model directory not found")
+            }
+        }
+    })
+}
+
 
 }
 
