@@ -41,516 +41,545 @@ import java.util.UUID
 import android.content.res.AssetManager
 import  android.content.Context
 import kotlinx.coroutines.CoroutineScope
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.RequestBody.Companion.asRequestBody
 import okio.ByteString
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
 
 
 class MainActivity : AppCompatActivity(), WebSocketMessageListener,InstanceSegmentation.InstanceSegmentationListener {
-    private lateinit var binding: ActivityMainBinding
-    private lateinit var instanceSegmentation: InstanceSegmentation
-    private lateinit var drawImages: DrawImages
-    private var selectedModel ="best_float16.tflite"
-    private val VIDEO_PICK_CODE = 2001
-    private var video_mode = 0
-    private var total_processed_frame =0
-    private var total_rbc = 0
-    private var total_wbc = 0
-    private var total_platelet = 0
-    private  var Start_time = LocalTime.now()
-    private var showVideoWithOverlay = false
-    private val client = OkHttpClient()
-    var fileName = "Unknown"
-    var all_model_list: MutableList<String> = mutableListOf()
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        binding = ActivityMainBinding.inflate(layoutInflater)
-        setContentView(binding.root)
-        enableEdgeToEdge()
+	private lateinit var binding: ActivityMainBinding
+	private lateinit var instanceSegmentation: InstanceSegmentation
+	private lateinit var drawImages: DrawImages
+	private var selectedModel ="best_float16.tflite"
+	private val VIDEO_PICK_CODE = 2001
+	private var video_mode = 0
+	private var total_processed_frame =0
+	private var total_rbc = 0
+	private var total_wbc = 0
+	private var total_platelet = 0
+	private  var Start_time = LocalTime.now()
+	private var showVideoWithOverlay = false
+	private val client = OkHttpClient()
+	var fileName = "Unknown"
+	var all_model_list: List<String> = mutableListOf()
+	var job_id_temp = ""
+	var image_url_temp = ""
+	override fun onCreate(savedInstanceState: Bundle?) {
+		super.onCreate(savedInstanceState)
+		binding = ActivityMainBinding.inflate(layoutInflater)
+		setContentView(binding.root)
+		enableEdgeToEdge()
 
 
 //        Set client id
-        val clientId = getOrCreateClientId(this)
-        Log.d("CLIENT_ID", "Generated or fetched client ID: $clientId")
-        binding.websocketId.text =clientId.toString()
-        val webSocketClient = CustomWebSocketClient(this, clientId)
-        webSocketClient.connect()
+		val clientId = getOrCreateClientId(this)
+		Log.d("CLIENT_ID", "Generated or fetched client ID: $clientId")
+		binding.websocketId.text =clientId.toString()
+		val webSocketClient = CustomWebSocketClient(this, clientId)
+		webSocketClient.connect()
 
 
 
-        // Initialize Model Selection Dropdown (Spinner)
-        setupModelSpinner()
-        // Initialize DrawImages
-        drawImages = DrawImages(applicationContext)
+		// Initialize Model Selection Dropdown (Spinner)
+//        setupModelSpinner()
+		// Initialize DrawImages
+		drawImages = DrawImages(applicationContext)
 
-        // Request permissions
-        checkPermission()
+		// Request permissions
+		checkPermission()
 
 
 
-        binding.videoSwitch.setOnCheckedChangeListener { _, isChecked ->
-            if (isChecked) {
-                binding.videoSwitch.text ="SREAMING ON"
-                binding.videoSwitch.setTextColor(Color.GREEN)
-                showVideoWithOverlay = true
+		binding.videoSwitch.setOnCheckedChangeListener { _, isChecked ->
+			if (isChecked) {
+				binding.videoSwitch.text ="SREAMING ON"
+				binding.videoSwitch.setTextColor(Color.GREEN)
+				showVideoWithOverlay = true
 //                Log.d("videoSwitch", "onCreate:$showVideoWithOverlay ")
-                binding.ivTop.visibility = View.VISIBLE
-                binding.ivTopVideo.visibility = View.GONE
-            }
-            else{
-                binding.videoSwitch.text ="SREAMING OFF"
-                binding.videoSwitch.setTextColor(Color.RED)
-                showVideoWithOverlay = false
-                binding.ivTop.visibility = View.GONE
-                binding.ivTopVideo.visibility = View.GONE
+				binding.ivTop.visibility = View.VISIBLE
+				binding.ivTopVideo.visibility = View.GONE
+			}
+			else{
+				binding.videoSwitch.text ="SREAMING OFF"
+				binding.videoSwitch.setTextColor(Color.RED)
+				showVideoWithOverlay = false
+				binding.ivTop.visibility = View.GONE
+				binding.ivTopVideo.visibility = View.GONE
 //                Log.d("videoSwitch", "onCreate:$showVideoWithOverlay ")
-            }
-            }
+			}
+			}
 
 //        Botton to select image from APIS
-        binding.ApiButton.setOnClickListener {
-            if (showVideoWithOverlay) {
-                binding.ivTop.visibility = View.VISIBLE
-                binding.ivTopVideo.visibility = View.GONE
-            } else {
-                binding.ivTop.visibility = View.GONE
-                binding.ivTopVideo.visibility = View.GONE
-            }
+		binding.ApiButton.setOnClickListener {
+			if (showVideoWithOverlay) {
+				binding.ivTop.visibility = View.VISIBLE
+				binding.ivTopVideo.visibility = View.GONE
+			} else {
+				binding.ivTop.visibility = View.GONE
+				binding.ivTopVideo.visibility = View.GONE
+			}
 
-            video_mode = 0
-            // Inside your onClick or wherever you're calling fetchImage
-            lifecycleScope.launch(Dispatchers.IO) {
-                fetchImage()
-            }
-
-
-        }
+			video_mode = 0
+			// Inside your onClick or wherever you're calling fetchImage
+			lifecycleScope.launch(Dispatchers.IO) {
+				fetchImage()
+			}
 
 
-        // Set up button to select image from gallery
-        binding.buttonSelectImage.setOnClickListener {
-            if(showVideoWithOverlay) {
-                binding.ivTop.visibility = View.VISIBLE
-                binding.ivTopVideo.visibility = View.GONE
-            }
-            else{
-                binding.ivTop.visibility = View.GONE
-                binding.ivTopVideo.visibility = View.GONE
-            }
-            video_mode = 0
+		}
 
-            pickImageLauncher.launch("image/*")
 
-        }
-        // Set up button to select video from gallery
-        binding.buttonSelectVideo.setOnClickListener {
-            if(showVideoWithOverlay) {
-                binding.ivTop.visibility = View.VISIBLE
-            }
-            else{
-                binding.ivTop.visibility = View.GONE
-            }
+		// Set up button to select image from gallery
+		binding.buttonSelectImage.setOnClickListener {
+			if(showVideoWithOverlay) {
+				binding.ivTop.visibility = View.VISIBLE
+				binding.ivTopVideo.visibility = View.GONE
+			}
+			else{
+				binding.ivTop.visibility = View.GONE
+				binding.ivTopVideo.visibility = View.GONE
+			}
+			video_mode = 0
+
+			pickImageLauncher.launch("image/*")
+
+		}
+		// Set up button to select video from gallery
+		binding.buttonSelectVideo.setOnClickListener {
+			if(showVideoWithOverlay) {
+				binding.ivTop.visibility = View.VISIBLE
+			}
+			else{
+				binding.ivTop.visibility = View.GONE
+			}
 //            binding.ivTopVideo.visibility = View.VISIBLE
 //            binding.previewView.visibility = View.VISIBLE
 
 
-            video_mode = 1
-            total_processed_frame =0
-            pickVideoLauncher.launch("video/*")
-        }
+			video_mode = 1
+			total_processed_frame =0
+			pickVideoLauncher.launch("video/*")
+		}
 
 
-    }
+	}
 
-    // Setup model selection spinner
-    private fun setupModelSpinner() {
+	// Setup model selection spinner
+	private fun setupModelSpinner() {
 
-        val modelList = assets.list("")?.filter { it.endsWith(".tflite") || it.endsWith(".pt") } ?: listOf()
+		val modelList = assets.list("")?.filter { it.endsWith(".tflite") || it.endsWith(".pt") } ?: listOf()
 
 //        val modelList = listOf("best_float16.tflite", "best_float32.tflite")
-        all_model_list = modelList.toMutableList()
-        val adapter = ArrayAdapter(this, R.layout.simple_spinner_dropdown_item, modelList)
-        binding.spinnerModels.adapter = adapter
+		all_model_list = modelList.toMutableList()
+		val adapter = ArrayAdapter(this, R.layout.simple_spinner_dropdown_item, modelList)
+		binding.spinnerModels.adapter = adapter
 
-        binding.spinnerModels.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(parent: AdapterView<*>, view: View?, position: Int, id: Long) {
-                selectedModel = modelList[position]
-                initializeSegmentationModel()
-            }
+		binding.spinnerModels.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+			override fun onItemSelected(parent: AdapterView<*>, view: View?, position: Int, id: Long) {
+				selectedModel = modelList[position]
+				initializeSegmentationModel()
+			}
 
-            override fun onNothingSelected(parent: AdapterView<*>) {}
-        }
-    }
-    private fun initializeSegmentationModel() {
-        instanceSegmentation = InstanceSegmentation(
-            context = applicationContext,
-            modelPath = selectedModel,
-            labelPath = null,
-            instanceSegmentationListener = this,
-            message = {
-                Toast.makeText(applicationContext, it, Toast.LENGTH_SHORT).show()
-            }
-        )
+			override fun onNothingSelected(parent: AdapterView<*>) {}
+		}
+	}
+	private fun initializeSegmentationModel() {
+		instanceSegmentation = InstanceSegmentation(
+			context = applicationContext,
+			modelPath = selectedModel,
+			labelPath = null,
+			instanceSegmentationListener = this,
+			message = {
+				Toast.makeText(applicationContext, it, Toast.LENGTH_SHORT).show()
+			}
+		)
 
-        // Show Toast with selected model name
-        Toast.makeText(applicationContext, "$selectedModel Model Initialized Successfully", Toast.LENGTH_SHORT).show()
-    }
+		// Show Toast with selected model name
+		Toast.makeText(applicationContext, "$selectedModel Model Initialized Successfully", Toast.LENGTH_SHORT).show()
+	}
 
 
-    // Request permission for external storage (Needed for Android 10 and below)
-    private fun checkPermission() {
-        val isGranted = REQUIRED_PERMISSIONS.all {
-            ActivityCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED
-        }
+	// Request permission for external storage (Needed for Android 10 and below)
+	private fun checkPermission() {
+		val isGranted = REQUIRED_PERMISSIONS.all {
+			ActivityCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED
+		}
 
-        if (!isGranted) {
-            requestPermissionLauncher.launch(REQUIRED_PERMISSIONS)
-        }
-    }
-    //    val bitmap = Bitmap.createBitmap(256, 256, Bitmap.Config.ARGB_8888)
-    // Image Picker: Opens the gallery
-    private var selectedBaseBitmap: Bitmap? = null
+		if (!isGranted) {
+			requestPermissionLauncher.launch(REQUIRED_PERMISSIONS)
+		}
+	}
+	//    val bitmap = Bitmap.createBitmap(256, 256, Bitmap.Config.ARGB_8888)
+	// Image Picker: Opens the gallery
+	private var selectedBaseBitmap: Bitmap? = null
 
-    private val pickImageLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        uri?.let {
-            try {
-                val inputStream = contentResolver.openInputStream(it)
-                selectedBaseBitmap = BitmapFactory.decodeStream(inputStream)  // Store selected base image
-                inputStream?.close()
-                selectedBaseBitmap?.let { bitmap -> processImage(bitmap) }  // Pass image for processing
-            } catch (e: Exception) {
-                Toast.makeText(this, "Failed to load image", Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
+	private val pickImageLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+		uri?.let {
+			try {
+				val inputStream = contentResolver.openInputStream(it)
+				selectedBaseBitmap = BitmapFactory.decodeStream(inputStream)  // Store selected base image
+				inputStream?.close()
+				selectedBaseBitmap?.let { bitmap -> processImage(bitmap) }  // Pass image for processing
+			} catch (e: Exception) {
+				Toast.makeText(this, "Failed to load image", Toast.LENGTH_SHORT).show()
+			}
+		}
+	}
 
-    private val pickVideoLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-    uri?.let {
-        binding.ivTopVideo.setVideoURI(it)
-        binding.ivTopVideo.setOnPreparedListener { mediaPlayer ->
-            mediaPlayer.isLooping = false
-            binding.ivTopVideo.start()
-        }
+	private val pickVideoLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+	uri?.let {
+		binding.ivTopVideo.setVideoURI(it)
+		binding.ivTopVideo.setOnPreparedListener { mediaPlayer ->
+			mediaPlayer.isLooping = false
+			binding.ivTopVideo.start()
+		}
 
-        // 🧠 Process frames from the selected video
-        processVideo(it)
+		// 🧠 Process frames from the selected video
+		processVideo(it)
 
-    }
+	}
 }
 
 
 
-    private fun fetchImage(url:URL){
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
+	private fun fetchImage(url:URL){
+		CoroutineScope(Dispatchers.IO).launch {
+			try {
 
-                val url: URL = url
-                val connection = url.openConnection() as HttpURLConnection
-                connection.doInput = true
-                connection.connect()
-                // 🔹 Content-Disposition (may include filename if server sets it)
-                val contentDisposition = connection.getHeaderField("Content-Disposition")
-                if (contentDisposition != null && contentDisposition.contains("filename=")) {
-                    val parts = contentDisposition.split("filename=")
-                    if (parts.size > 1) {
-                        fileName = parts[1].replace("\"", "").trim()
-                    }
-                }
+				val url: URL = url
+				val connection = url.openConnection() as HttpURLConnection
+				connection.doInput = true
+				connection.connect()
+				// 🔹 Content-Disposition (may include filename if server sets it)
+				val contentDisposition = connection.getHeaderField("Content-Disposition")
+				if (contentDisposition != null && contentDisposition.contains("filename=")) {
+					val parts = contentDisposition.split("filename=")
+					if (parts.size > 1) {
+						fileName = parts[1].replace("\"", "").trim()
+					}
+				}
 
-                val input: InputStream = connection.inputStream
-                selectedBaseBitmap = BitmapFactory.decodeStream(input)
+				val input: InputStream = connection.inputStream
+				selectedBaseBitmap = BitmapFactory.decodeStream(input)
 //            runOnUiThread{binding.ivTop.setImageBitmap(selectedBaseBitmap)}
 //            selectedBaseBitmap = BitmapFactory.decodeStream(input)
-                selectedBaseBitmap?.let { bitmap -> processImage(bitmap) }
+				selectedBaseBitmap?.let { bitmap -> processImage(bitmap) }
 
-            } catch (E: Exception) {
-                E.printStackTrace()
-                Log.d("Fetch image", "fetchImage:${E.message} ")
-                runOnUiThread {
-                    Toast.makeText(applicationContext, "Failed to load image", Toast.LENGTH_SHORT)
-                        .show()
-                }
-            }
-        }
-    }
+			} catch (E: Exception) {
+				E.printStackTrace()
+				Log.d("Fetch image", "fetchImage:${E.message} ")
+				runOnUiThread {
+					Toast.makeText(applicationContext, "Failed to load image", Toast.LENGTH_SHORT)
+						.show()
+				}
+			}
+		}
+	}
 
 
 
-    private fun fetchImage(){
-        try{
+	private fun fetchImage(){
+		try{
 
-            val url: URL = URL("http://192.168.1.5:8000/get-task/")
-            val connection = url.openConnection() as HttpURLConnection
-            connection.doInput = true
-            connection.connect()
-            // 🔹 Content-Disposition (may include filename if server sets it)
-            val contentDisposition = connection.getHeaderField("Content-Disposition")
-            if (contentDisposition != null && contentDisposition.contains("filename=")) {
-                val parts = contentDisposition.split("filename=")
-                if (parts.size > 1) {
-                    fileName = parts[1].replace("\"", "").trim()
-                }
-            }
+			val url: URL = URL("http://192.168.1.5:8000/get-task/")
+			val connection = url.openConnection() as HttpURLConnection
+			connection.doInput = true
+			connection.connect()
+			// 🔹 Content-Disposition (may include filename if server sets it)
+			val contentDisposition = connection.getHeaderField("Content-Disposition")
+			if (contentDisposition != null && contentDisposition.contains("filename=")) {
+				val parts = contentDisposition.split("filename=")
+				if (parts.size > 1) {
+					fileName = parts[1].replace("\"", "").trim()
+				}
+			}
 
-            val input: InputStream = connection.inputStream
-            selectedBaseBitmap = BitmapFactory.decodeStream(input)
+			val input: InputStream = connection.inputStream
+			selectedBaseBitmap = BitmapFactory.decodeStream(input)
 //            runOnUiThread{binding.ivTop.setImageBitmap(selectedBaseBitmap)}
 //            selectedBaseBitmap = BitmapFactory.decodeStream(input)
-            selectedBaseBitmap?.let { bitmap -> processImage(bitmap) }
+			selectedBaseBitmap?.let { bitmap -> processImage(bitmap) }
 
-        }
-        catch (E:Exception){
-            E.printStackTrace()
-            Log.d("Fetch image", "fetchImage:${E.message} ")
-            runOnUiThread {
-                Toast.makeText(applicationContext, "Failed to load image", Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
+		}
+		catch (E:Exception){
+			E.printStackTrace()
+			Log.d("Fetch image", "fetchImage:${E.message} ")
+			runOnUiThread {
+				Toast.makeText(applicationContext, "Failed to load image", Toast.LENGTH_SHORT).show()
+			}
+		}
+	}
 
-    // Process selected image
-    private fun processImage(bitmap: Bitmap) {
-        total_rbc = 0
-        total_wbc = 0
-        total_platelet = 0
-        val scaledBitmap = Bitmap.createScaledBitmap(bitmap, 256, 256, true) // Resize if needed
-        if(showVideoWithOverlay)
-            instanceSegmentation.invoke1(scaledBitmap)
-        else
-            instanceSegmentation.invoke(scaledBitmap)
-    }
+	// Process selected image
+	private fun processImage(bitmap: Bitmap) {
+		total_rbc = 0
+		total_wbc = 0
+		total_platelet = 0
+		val scaledBitmap = Bitmap.createScaledBitmap(bitmap, 256, 256, true) // Resize if needed
+		if(showVideoWithOverlay)
+			instanceSegmentation.invoke1(scaledBitmap)
+		else
+			instanceSegmentation.invoke(scaledBitmap)
+	}
 
-    override fun onError(error: String) {
-        runOnUiThread {
-            Toast.makeText(applicationContext, error, Toast.LENGTH_SHORT).show()
-            binding.ivTop.setImageResource(0)
-        }
-    }
+	override fun onError(error: String) {
+		runOnUiThread {
+			Toast.makeText(applicationContext, error, Toast.LENGTH_SHORT).show()
+			binding.ivTop.setImageResource(0)
+		}
+	}
 
-    override fun onDetectWithoutImage(
-        interfaceTime: Long,
+	override fun onDetectWithoutImage(
+		interfaceTime: Long,
 //        results: List<SegmentationResult>,
-        preProcessTime: Long,
-        postProcessTime: Long,
-        classCounts: Map<String, Int>
+		preProcessTime: Long,
+		postProcessTime: Long,
+		classCounts: Map<String, Int>
 
-    ) {
+	) {
 
-        val rbcCount = classCounts["rbc"] ?: 0
-        val wbcCount = classCounts["wbc"] ?: 0
-        val plateletCount = classCounts["platelet"] ?: 0
+		val rbcCount = classCounts["rbc"] ?: 0
+		val wbcCount = classCounts["wbc"] ?: 0
+		val plateletCount = classCounts["platelet"] ?: 0
 
-        total_rbc = total_rbc + rbcCount
-        total_wbc = total_wbc + wbcCount
-        total_platelet = total_platelet + plateletCount
+		total_rbc = total_rbc + rbcCount
+		total_wbc = total_wbc + wbcCount
+		total_platelet = total_platelet + plateletCount
 
 //        get label
-        val label = instanceSegmentation.getLabels()
-        Log.d("MainActivity", "onDetect:clss name $classCounts ")
-        val message_cell_count = "Rcb: $total_rbc Wbc: $total_wbc Platelet: $total_platelet"
+		val label = instanceSegmentation.getLabels()
+		Log.d("MainActivity", "onDetect:clss name $classCounts ")
+		val message_cell_count = "Rcb: $total_rbc Wbc: $total_wbc Platelet: $total_platelet"
 
-        runOnUiThread {
-            binding.tvPreprocess.text = preProcessTime.toString()
-            binding.tvInference.text = interfaceTime.toString()
-            binding.tvPostprocess.text = postProcessTime.toString()
-            binding.resultModel.text = message_cell_count
-        }
+		runOnUiThread {
+			binding.tvPreprocess.text = preProcessTime.toString()
+			binding.tvInference.text = interfaceTime.toString()
+			binding.tvPostprocess.text = postProcessTime.toString()
+			binding.resultModel.text = message_cell_count
+		}
+		postJsonToServer(image_url_temp, total_rbc, total_wbc, total_platelet)
 
-    }
+	}
 
-    override fun onDetect(
-        interfaceTime: Long,
-        results: List<SegmentationResult>,
-        preProcessTime: Long,
-        postProcessTime: Long,
-        classCounts: Map<String, Int>
-    ) {
+	override fun onDetect(
+		interfaceTime: Long,
+		results: List<SegmentationResult>,
+		preProcessTime: Long,
+		postProcessTime: Long,
+		classCounts: Map<String, Int>
+	) {
 
-        val rbcCount = classCounts["rbc"] ?: 0
-        val wbcCount = classCounts["wbc"] ?: 0
-        val plateletCount = classCounts["platelet"] ?: 0
+		val rbcCount = classCounts["rbc"] ?: 0
+		val wbcCount = classCounts["wbc"] ?: 0
+		val plateletCount = classCounts["platelet"] ?: 0
 
-        total_rbc = total_rbc + rbcCount
-        total_wbc = total_wbc + wbcCount
-        total_platelet = total_platelet + plateletCount
-        if(showVideoWithOverlay) {
-            val overlayBitmap = drawImages.invoke(results)  // Output image from segmentation
-            val finalImage =
-                overlayImages(selectedBaseBitmap!!, overlayBitmap)  // Merge base and overlay images
-            // Get screen width
-            val screenWidth = resources.displayMetrics.widthPixels
+		total_rbc = total_rbc + rbcCount
+		total_wbc = total_wbc + wbcCount
+		total_platelet = total_platelet + plateletCount
+		if(showVideoWithOverlay) {
+			val overlayBitmap = drawImages.invoke(results)  // Output image from segmentation
+			val finalImage =
+				overlayImages(selectedBaseBitmap!!, overlayBitmap)  // Merge base and overlay images
+			// Get screen width
+			val screenWidth = resources.displayMetrics.widthPixels
 
-            // Resize finalImage to screen width (both width and height)
-            val resizedFinalImage =
-                Bitmap.createScaledBitmap(finalImage, screenWidth, screenWidth, true)
+			// Resize finalImage to screen width (both width and height)
+			val resizedFinalImage =
+				Bitmap.createScaledBitmap(finalImage, screenWidth, screenWidth, true)
+            val tempImageFile = bitmapToTempFile(applicationContext, finalImage)
+            uploadImage(tempImageFile)
 
             runOnUiThread {
-                    binding.ivTop.setImageBitmap(resizedFinalImage)
-            }
+					binding.ivTop.setImageBitmap(resizedFinalImage)
+
+			}
+
+
         }
-        //  get label
-        val label = instanceSegmentation.getLabels()
-        Log.d("MainActivity", "onDetect:clss name $classCounts ")
-        val message_cell_count = "Rcb: $total_rbc Wbc: $total_wbc Platelet: $total_platelet"
+		//  get label
+		val label = instanceSegmentation.getLabels()
+		Log.d("MainActivity", "onDetect:clss name $classCounts ")
+		val message_cell_count = "Rcb: $total_rbc Wbc: $total_wbc Platelet: $total_platelet"
 
-        runOnUiThread {
-            binding.tvPreprocess.text = preProcessTime.toString()
-            binding.tvInference.text = interfaceTime.toString()
-            binding.tvPostprocess.text = postProcessTime.toString()
-            binding.resultModel.text = message_cell_count
-        }
-        postJsonToServer(fileName, total_rbc, total_wbc, total_platelet)
+		runOnUiThread {
+			binding.tvPreprocess.text = preProcessTime.toString()
+			binding.tvInference.text = interfaceTime.toString()
+			binding.tvPostprocess.text = postProcessTime.toString()
+			binding.resultModel.text = message_cell_count
+		}
+		postJsonToServer(fileName, total_rbc, total_wbc, total_platelet)
 
-    }
+	}
 
-    override fun onEmpty() {
-        runOnUiThread {
-            binding.ivTop.setImageResource(0)
-        }
-    }
+	override fun onEmpty() {
+		runOnUiThread {
+			binding.ivTop.setImageResource(0)
+		}
+	}
 
-    override fun onDestroy() {
-        super.onDestroy()
-        instanceSegmentation.close()
-    }
+	override fun onDestroy() {
+		super.onDestroy()
+		instanceSegmentation.close()
+	}
 
-    companion object {
-        val REQUIRED_PERMISSIONS = arrayOf(
-            Manifest.permission.READ_EXTERNAL_STORAGE
-        )
-    }
-    fun overlayImages(baseBitmap: Bitmap, overlayBitmap: Bitmap): Bitmap {
-        // Ensure overlay image is scaled to fit the base image if needed
-        val scaledOverlay = Bitmap.createScaledBitmap(overlayBitmap, baseBitmap.width, baseBitmap.height, true)
+	companion object {
+		val REQUIRED_PERMISSIONS = arrayOf(
+			Manifest.permission.READ_EXTERNAL_STORAGE
+		)
+	}
+	fun overlayImages(baseBitmap: Bitmap, overlayBitmap: Bitmap): Bitmap {
+		// Ensure overlay image is scaled to fit the base image if needed
+		val scaledOverlay = Bitmap.createScaledBitmap(overlayBitmap, baseBitmap.width, baseBitmap.height, true)
 
-        // Create a mutable copy of the base image
-        val resultBitmap = Bitmap.createBitmap(
-            baseBitmap.width,
-            baseBitmap.height,
-            baseBitmap.config ?: Bitmap.Config.ARGB_8888  // Provide a default config
-        )
+		// Create a mutable copy of the base image
+		val resultBitmap = Bitmap.createBitmap(
+			baseBitmap.width,
+			baseBitmap.height,
+			baseBitmap.config ?: Bitmap.Config.ARGB_8888  // Provide a default config
+		)
 
-        // Create a canvas to draw on the new bitmap
-        val canvas = Canvas(resultBitmap)
+		// Create a canvas to draw on the new bitmap
+		val canvas = Canvas(resultBitmap)
 
-        // Draw base image first
-        canvas.drawBitmap(baseBitmap, 0f, 0f, null)
+		// Draw base image first
+		canvas.drawBitmap(baseBitmap, 0f, 0f, null)
 
-        // Set up paint for overlay (optional transparency)
-        val paint = Paint()
-        paint.alpha = 200  // Adjust transparency (0-255)
+		// Set up paint for overlay (optional transparency)
+		val paint = Paint()
+		paint.alpha = 200  // Adjust transparency (0-255)
 
-        // Draw overlay image on top
-        canvas.drawBitmap(scaledOverlay, 0f, 0f, paint)
+		// Draw overlay image on top
+		canvas.drawBitmap(scaledOverlay, 0f, 0f, paint)
 
-        return resultBitmap
-    }
+		return resultBitmap
+	}
 
-    private fun processVideo(uri: Uri) {
-        val retriever = android.media.MediaMetadataRetriever()
-        retriever.setDataSource(applicationContext, uri)
-        Start_time = LocalTime.now()
+	private fun processVideo(uri: Uri) {
+		val retriever = android.media.MediaMetadataRetriever()
+		retriever.setDataSource(applicationContext, uri)
+		Start_time = LocalTime.now()
 
-        val duration =
-            retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull()
-                ?: 0L
-        val frameRate =30
-        val estimatedFrameCount = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_VIDEO_FRAME_COUNT)?.toLongOrNull()
+		val duration =
+			retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull()
+				?: 0L
+		val frameRate =30
+		val estimatedFrameCount = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_VIDEO_FRAME_COUNT)?.toLongOrNull()
 //        binding.totalFrameCount.text = estimatedFrameCount.toString()
 
-        var frameIntervalMs = 70L // 1000L = 1 second interval
-        total_processed_frame = 0
+		var frameIntervalMs = 70L // 1000L = 1 second interval
+		total_processed_frame = 0
 
-        total_rbc = 0
-        total_wbc = 0
-        total_platelet = 0
+		total_rbc = 0
+		total_wbc = 0
+		total_platelet = 0
 
-        Thread {
-            var timeMs = 0L
-            var total_frame = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_VIDEO_FRAME_COUNT)?.toLongOrNull()
+		Thread {
+			var timeMs = 0L
+			var total_frame = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_VIDEO_FRAME_COUNT)?.toLongOrNull()
 
-            runOnUiThread{
-                binding.totalFrameCount.text = total_frame.toString()
-            }
+			runOnUiThread{
+				binding.totalFrameCount.text = total_frame.toString()
+			}
 
-            Log.d("duration", "processVideo: $duration ")
+			Log.d("duration", "processVideo: $duration ")
 //            while (timeMs < duration) {
-            while (total_processed_frame < total_frame!!) {
+			while (total_processed_frame < total_frame!!) {
 //                val frameBitmap =
 //                    retriever.getFrameAtTime(timeMs * 1000, android.media.MediaMetadataRetriever.OPTION_CLOSEST)
-                val frameBitmapIndex  =retriever.getFrameAtIndex(total_processed_frame, MediaMetadataRetriever.BitmapParams())
+				val frameBitmapIndex  =retriever.getFrameAtIndex(total_processed_frame, MediaMetadataRetriever.BitmapParams())
 //                frameBitmap?.let {
-                frameBitmapIndex?.let {
-                    val scaledBitmap = Bitmap.createScaledBitmap(it, 256, 256, true)
-                    selectedBaseBitmap = scaledBitmap // for overlay
-                    if(showVideoWithOverlay) {
-                        frameIntervalMs = 230L
-                        runOnUiThread {
-                            instanceSegmentation.invoke1(scaledBitmap)
-                        }
-                    }
-                    else{
-                        frameIntervalMs = 70L
-                        runOnUiThread {
-                            instanceSegmentation.invoke(scaledBitmap)
-                        }
-                    }
-                        total_processed_frame+=1
-                    runOnUiThread {
+				frameBitmapIndex?.let {
+					val scaledBitmap = Bitmap.createScaledBitmap(it, 256, 256, true)
+					selectedBaseBitmap = scaledBitmap // for overlay
+					if(showVideoWithOverlay) {
+						frameIntervalMs = 230L
+						runOnUiThread {
+							instanceSegmentation.invoke1(scaledBitmap)
+						}
+					}
+					else{
+						frameIntervalMs = 70L
+						runOnUiThread {
+							instanceSegmentation.invoke(scaledBitmap)
+						}
+					}
+						total_processed_frame+=1
+					runOnUiThread {
 //                        binding.totalFrameRead.text = total_processed_frame.toString()
-                        binding.totalFrameProcessed.text = total_processed_frame.toString()
-                        binding.videoStopTime.text = Duration.between(Start_time, LocalTime.now()).toMinutes().toString()
+						binding.totalFrameProcessed.text = total_processed_frame.toString()
+						binding.videoStopTime.text = Duration.between(Start_time, LocalTime.now()).toMinutes().toString()
 //                        binding.videoStartTime.text = Duration.between(Start_time, LocalTime.now()).seconds.toString()
-                    }
-                    Thread.sleep(frameIntervalMs) // wait before processing next frame
+					}
+					Thread.sleep(frameIntervalMs) // wait before processing next frame
 //                    binding.totalFrameRead.text = timeMs.toString()
-                }
+				}
 //                frame_index=frame_index+1
-                timeMs = timeMs+33
-            }
-            retriever.release()
-        }.start()
+				timeMs = timeMs+33
+			}
+			retriever.release()
+		}.start()
 
-    }
-    private fun postJsonToServer(Filename: String,Rbc: Int, Wbc: Int, Platelet: Int) {
-        val url = "http://192.168.1.5:8000/append-json"
+	}
 
-        // Build your JSON object
-        val json = JSONObject().apply {
-            put("filename", Filename)
-            put("rbc", Rbc)
-            put("wbc", Wbc)
-            put("platelet", Platelet)
+    fun bitmapToTempFile(context: Context, bitmap: Bitmap): File {
+        // Ensure the directory exists
+        val imagesDir = File(context.cacheDir, "images")
+        if (!imagesDir.exists()) {
+            imagesDir.mkdirs()  // Create the directory if it doesn't exist
         }
 
-        val mediaType = "application/json; charset=utf-8".toMediaType()
-        val requestBody = json.toString().toRequestBody(mediaType)
+        // Now safely create the temp file inside it
+        val tempFile = File.createTempFile("BloodImage_", ".jpg", imagesDir)
+
+        try {
+            FileOutputStream(tempFile).use { out ->
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 100, out)
+            }
+        } catch (e: IOException) {
+            e.printStackTrace()
+        }
+
+        return tempFile
+    }
+
+
+
+
+
+
+    private fun uploadImage(imageFile: File) {
+        val url = "http://192.168.1.5:8000/upload-image"
+
+        val requestBody = imageFile.asRequestBody("image/jpeg".toMediaTypeOrNull())
+        val multipartBody = MultipartBody.Builder()
+            .setType(MultipartBody.FORM)
+            .addFormDataPart("file", imageFile.name, requestBody)
+            .build()
 
         val request = Request.Builder()
             .url(url)
-            .post(requestBody)
+            .post(multipartBody)
             .build()
 
         client.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
                 e.printStackTrace()
                 runOnUiThread {
-                    Toast.makeText(applicationContext, "Failed to send JSON", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(applicationContext, "Upload failed: ${e.message}", Toast.LENGTH_SHORT).show()
                 }
             }
 
             override fun onResponse(call: Call, response: Response) {
-                response.use {
-                    if (!response.isSuccessful) {
-                        runOnUiThread {
-                            Toast.makeText(applicationContext, "Server error: ${response.code}", Toast.LENGTH_SHORT).show()
-                        }
+                val body = response.body?.string()
+                Log.d("UPLOAD_IMAGE", "Response: $body")
+                runOnUiThread {
+                    if (response.isSuccessful) {
+                        Toast.makeText(applicationContext, "Upload success!", Toast.LENGTH_SHORT).show()
                     } else {
-                        val responseBody = response.body?.string()
-                        Log.d("POST_JSON", "Response: $responseBody")
-                        runOnUiThread {
-                            Toast.makeText(applicationContext, "JSON sent successfully!", Toast.LENGTH_SHORT).show()
-                        }
+                        Toast.makeText(applicationContext, "Server error: ${response.code}", Toast.LENGTH_SHORT).show()
                     }
                 }
             }
@@ -558,142 +587,208 @@ class MainActivity : AppCompatActivity(), WebSocketMessageListener,InstanceSegme
     }
 
 
-    private val requestPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions()) { map ->
-        if (map.all { it.value }) {
-            Toast.makeText(this, "Permissions granted", Toast.LENGTH_SHORT).show()
-        } else {
-            Toast.makeText(this, "Permission required", Toast.LENGTH_LONG).show()
-        }
-    }
+
+    private fun postJsonToServer(Filename: String,Rbc: Int, Wbc: Int, Platelet: Int) {
+		val url = "http://192.168.1.5:8000/append-json"
+
+		// Build your JSON object
+		val json = JSONObject().apply {
+			put("filename", Filename)
+			put("rbc", Rbc)
+			put("wbc", Wbc)
+			put("platelet", Platelet)
+			put("model_name", selectedModel)
+			put("job_id",job_id_temp)
+		}
+
+		val mediaType = "application/json; charset=utf-8".toMediaType()
+		val requestBody = json.toString().toRequestBody(mediaType)
+
+		val request = Request.Builder()
+			.url(url)
+			.post(requestBody)
+			.build()
+
+		client.newCall(request).enqueue(object : Callback {
+			override fun onFailure(call: Call, e: IOException) {
+				e.printStackTrace()
+				runOnUiThread {
+					Toast.makeText(applicationContext, "Failed to send JSON", Toast.LENGTH_SHORT).show()
+				}
+			}
+
+			override fun onResponse(call: Call, response: Response) {
+				response.use {
+					if (!response.isSuccessful) {
+						runOnUiThread {
+							Toast.makeText(applicationContext, "Server error: ${response.code}", Toast.LENGTH_SHORT).show()
+						}
+					} else {
+						val responseBody = response.body?.string()
+						Log.d("POST_JSON", "Response: $responseBody")
+						runOnUiThread {
+							Toast.makeText(applicationContext, "JSON sent successfully!", Toast.LENGTH_SHORT).show()
+						}
+					}
+				}
+			}
+		})
+	}
 
 
-    fun getOrCreateClientId(context: Context): String {
-        val sharedPref = context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
-        var clientId = sharedPref.getString("client_id", null)
-
-        if (clientId == null) {
-            clientId = UUID.randomUUID().toString() // Generate unique ID
-            sharedPref.edit().putString("client_id", clientId).apply()
-        }
-
-        return clientId
-    }
-
-    // 👇 Callback method from WebSocket
-    override fun onTextMessage(message: String) {
-        Log.d("main activity", "onTextMessage:$message ")
-        runOnUiThread {
-            binding.wsMessage.text = message
-
-            val index = all_model_list.indexOfFirst { it.equals(message, ignoreCase = true) }
-            if (index != -1) {
-                binding.spinnerModels.setSelection(index)
-                selectedModel = all_model_list[index]
-                initializeSegmentationModel()
-
-                Toast.makeText(this, "✅ Model '$message' selected", Toast.LENGTH_SHORT).show()
-            } else {
-                Toast.makeText(this, "❌ Model '$message' not found in list", Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
-    // ✅ Called when a job is assigned from backend
-    override fun onAssignJob(
-        jobId: String,
-        modelName: String,
-        modelUrl: String,
-        modelHash: String,
-        imageUrl: String,
-        returnType: String,
-        returnUrl: String
-    ) {
-        Log.d("MainActivity", "🛠 Assigned Job: $jobId")
-        Log.d("MainActivity", "modelName: $modelName")
-        Log.d("MainActivity", "modelUrl: $modelUrl")
-        Log.d("MainActivity", "modelHash: $modelHash")
-        Log.d("MainActivity", "imageUrl: $imageUrl")
+	private val requestPermissionLauncher = registerForActivityResult(
+		ActivityResultContracts.RequestMultiplePermissions()) { map ->
+		if (map.all { it.value }) {
+			Toast.makeText(this, "Permissions granted", Toast.LENGTH_SHORT).show()
+		} else {
+			Toast.makeText(this, "Permission required", Toast.LENGTH_LONG).show()
+		}
+	}
 
 
-        //Download the model
-        downloadModelToLocal(this, modelUrl, modelName) { modelFile ->
-            if (modelFile != null) {
-                runOnUiThread {
-                    Toast.makeText(this, "✅ Model downloaded to ${modelFile.absolutePath}", Toast.LENGTH_SHORT).show()
-                    Log.d("MainActivity", "Model file path: ${modelFile.absolutePath}")
-                    // TODO: Load model for inference from modelFile.absolutePath
-                }
-            } else {
-                runOnUiThread {
-                    Toast.makeText(this, "❌ Failed to download model", Toast.LENGTH_SHORT).show()
-                }
-            }
-        }
+	fun getOrCreateClientId(context: Context): String {
+		val sharedPref = context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+		var clientId = sharedPref.getString("client_id", null)
 
+		if (clientId == null) {
+			clientId = UUID.randomUUID().toString() // Generate unique ID
+			sharedPref.edit().putString("client_id", clientId).apply()
+		}
 
-        runOnUiThread {
-            val index = all_model_list.indexOfFirst { it.equals(modelName, ignoreCase = true) }
-            if (index != -1) {
-                binding.spinnerModels.setSelection(index)
-                selectedModel = all_model_list[index]
-                initializeSegmentationModel()
+		return clientId
+	}
 
-                Toast.makeText(this, "✅ Model '$modelName' selected", Toast.LENGTH_SHORT).show()
-            } else {
-                Toast.makeText(this, "❌ Model '$modelName' not found in list", Toast.LENGTH_SHORT).show()
-            }
+	// 👇 Callback method from WebSocket
+	override fun onTextMessage(message: String) {
+		Log.d("main activity", "onTextMessage:$message ")
+		runOnUiThread {
+			binding.wsMessage.text = message
 
-        }
-        fetchImage(URL(imageUrl))
-        // TODO: Start background work to download model/image and do inference
-    }
+			val index = all_model_list.indexOfFirst { it.equals(message, ignoreCase = true) }
+			if (index != -1) {
+				binding.spinnerModels.setSelection(index)
+				selectedModel = all_model_list[index]
+				initializeSegmentationModel()
+
+				Toast.makeText(this, "✅ Model '$message' selected", Toast.LENGTH_SHORT).show()
+			} else {
+				Toast.makeText(this, "❌ Model '$message' not found in list", Toast.LENGTH_SHORT).show()
+			}
+		}
+	}
+
+	override fun onAssignJob(
+		jobId: String,
+		modelName: String,
+		modelUrl: String,
+		modelHash: String,
+		imageUrl: String,
+		returnType: String,
+		returnUrl: String
+	) {
+		Log.d("MainActivity", "🛠 Assigned Job: $jobId")
+		Log.d("MainActivity", "modelName: $modelName")
+		Log.d("MainActivity", "modelUrl: $modelUrl")
+		Log.d("MainActivity", "modelHash: $modelHash")
+		Log.d("MainActivity", "imageUrl: $imageUrl")
+		job_id_temp = jobId
+		image_url_temp= imageUrl
+		val cleanModelName = modelName.trim().replace(" ", "")
+
+		if (all_model_list.contains(cleanModelName)) {
+			Log.d("model present", "✅ Model present: $cleanModelName")
+			if (selectedModel != cleanModelName){
+				selectedModel = cleanModelName
+				initializeSegmentationModel()
+				fetchImage(URL(imageUrl))
+			}
+			else{
+				fetchImage(URL(imageUrl))
+			}
+//            Toast.makeText(this, "✅ Model '$modelName' selected", Toast.LENGTH_SHORT).show()
+//            selectModelAndFetchImage(modelName, imageUrl)
+		} else {
+			Log.d("model present", "⬇️ Downloading model: $cleanModelName")
+
+			downloadModelToLocal(this, modelUrl, cleanModelName) { modelFile ->
+				runOnUiThread {
+					if (modelFile != null) {
+						Toast.makeText(
+							this,
+							"✅ Model downloaded to ${modelFile.absolutePath}",
+							Toast.LENGTH_SHORT
+						).show()
+						Log.d("MainActivity", "📁 Model file path: ${modelFile.absolutePath}")
+						selectedModel = cleanModelName
+						initializeSegmentationModel()
+						fetchImage(URL(imageUrl))
+
+					} else {
+						Toast.makeText(
+							this,
+							"❌ Failed to download model: $cleanModelName",
+							Toast.LENGTH_SHORT
+						).show()
+					}
+
+					// Refresh model list and try selecting the model
+					val modelListDir = File(filesDir, "models")
+					all_model_list = modelListDir.list()?.toList() ?: emptyList()
+					Log.d("All model list", "📦 Models available: $all_model_list")
+
+//                    selectModelAndFetchImage(modelName, imageUrl)
+				}
+			}
+		}
+	}
+
 
 //    download model
 fun downloadModelToLocal(context: Context, modelUrl: String, modelFileName: String, onComplete: (File?) -> Unit) {
-    val client = OkHttpClient()
-    val request = Request.Builder().url(modelUrl).build()
+	val client = OkHttpClient()
+	val request = Request.Builder().url(modelUrl).build()
 
-    client.newCall(request).enqueue(object : Callback {
-        override fun onFailure(call: Call, e: IOException) {
-            Log.e("ModelDownload", "❌ Failed to download model", e)
-            onComplete(null)
-        }
+	client.newCall(request).enqueue(object : Callback {
+		override fun onFailure(call: Call, e: IOException) {
+			Log.e("ModelDownload", "❌ Failed to download model", e)
+			onComplete(null)
+		}
 
-        override fun onResponse(call: Call, response: Response) {
-            if (!response.isSuccessful) {
-                Log.e("ModelDownload", "❌ HTTP Error: ${response.code}")
-                onComplete(null)
-                return
-            }
+		override fun onResponse(call: Call, response: Response) {
+			if (!response.isSuccessful) {
+				Log.e("ModelDownload", "❌ HTTP Error: ${response.code}")
+				onComplete(null)
+				return
+			}
 
-            val modelDir = File(context.filesDir, "models")
-            if (!modelDir.exists()) modelDir.mkdirs()
+			val modelDir = File(context.filesDir, "models")
+			if (!modelDir.exists()) modelDir.mkdirs()
 
-            val outFile = File(modelDir, modelFileName)
-            val inputStream = response.body?.byteStream()
+			val outFile = File(modelDir, modelFileName)
+			val inputStream = response.body?.byteStream()
 
-            try {
-                inputStream?.use { input ->
-                    FileOutputStream(outFile).use { output ->
-                        input.copyTo(output)
-                    }
-                }
-                Log.d("ModelDownload", "✅ Model saved at: ${outFile.absolutePath}")
-                onComplete(outFile)
-            } catch (e: Exception) {
-                Log.e("ModelDownload", "❌ Error saving model", e)
-                onComplete(null)
-            }
-            if (modelDir.exists() && modelDir.isDirectory) {
-                val files = modelDir.listFiles()
-                files?.forEach {
-                    Log.d("ModelDirectory", "📁 File: ${it.name}")
-                }
-            } else {
-                Log.e("ModelDirectory", "❌ Model directory not found")
-            }
-        }
-    })
+			try {
+				inputStream?.use { input ->
+					FileOutputStream(outFile).use { output ->
+						input.copyTo(output)
+					}
+				}
+				Log.d("ModelDownload", "✅ Model saved at: ${outFile.absolutePath}")
+				onComplete(outFile)
+			} catch (e: Exception) {
+				Log.e("ModelDownload", "❌ Error saving model", e)
+				onComplete(null)
+			}
+			if (modelDir.exists() && modelDir.isDirectory) {
+				val files = modelDir.listFiles()
+				files?.forEach {
+					Log.d("ModelDirectory", "📁 File: ${it.name}")
+				}
+			} else {
+				Log.e("ModelDirectory", "❌ Model directory not found")
+			}
+		}
+	})
 }
 
 

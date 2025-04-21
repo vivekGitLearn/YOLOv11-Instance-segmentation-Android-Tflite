@@ -10,13 +10,16 @@ import com.vivek.yolov11instancesegmentation.MetaData.extractNamesFromLabelFile
 import com.vivek.yolov11instancesegmentation.MetaData.extractNamesFromMetadata
 import org.tensorflow.lite.DataType
 import org.tensorflow.lite.Interpreter
-import org.tensorflow.lite.support.common.FileUtil
 import org.tensorflow.lite.support.common.ops.CastOp
 import org.tensorflow.lite.support.common.ops.NormalizeOp
 import org.tensorflow.lite.support.image.ImageProcessor
 import org.tensorflow.lite.support.image.TensorImage
 import org.tensorflow.lite.support.tensorbuffer.TensorBuffer
+import java.io.File
+import java.io.FileInputStream
 import java.nio.ByteBuffer
+import java.nio.MappedByteBuffer
+import java.nio.channels.FileChannel
 
 class InstanceSegmentation(
     context: Context,
@@ -25,7 +28,7 @@ class InstanceSegmentation(
     private val instanceSegmentationListener: InstanceSegmentationListener,
     private val message: (String) -> Unit
 ) {
-    private var interpreter: Interpreter
+    private lateinit var interpreter: Interpreter
     private var labels = mutableListOf<String>()
 
     private var tensorWidth = 0
@@ -44,11 +47,30 @@ class InstanceSegmentation(
     init {
         val options = Interpreter.Options()
         options.setNumThreads(4)
+        val localModelFile = File(context.filesDir, "models/$modelPath")
 
-        val model = FileUtil.loadMappedFile(context, modelPath)
-        interpreter = Interpreter(model, options)
+        if (localModelFile.exists()) {
+            val modelBuffer = loadModelFile(localModelFile)
+            interpreter = Interpreter(modelBuffer, options)
+            Log.d("TFLite", "✅ Local model loaded successfully.")
+            labels.addAll(extractNamesFromMetadata(modelBuffer))
+        } else {
+            Log.e("TFLite", "❌ Local model file not found: ${localModelFile.absolutePath}")
+        }
+//        // Load model from file
+//        val inputStream = FileInputStream(localModelFile)
+//        val fileChannel = inputStream.channel
+//        val startOffset = 0L
+//        val declaredLength = localModelFile.length()
+//        val mappedByteBuffer: MappedByteBuffer = fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength)
 
-        labels.addAll(extractNamesFromMetadata(model))
+//        val model = FileUtil.loadMappedFile(context, modelPath)
+//        interpreter = Interpreter(model, options)
+
+//        interpreter = Interpreter(localModelBuffer, options)
+//        labels.addAll(extractNamesFromMetadata(localModelBuffer))
+//        labels.addAll(extractNamesFromMetadata(model))
+
         Log.d("model metadata", ":this is model metadata ${labels} ")
         if (labels.isEmpty()) {
             if (labelPath == null) {
@@ -99,6 +121,15 @@ class InstanceSegmentation(
     //list all the class i model
     fun getLabels(): List<String> {
         return labels
+    }
+
+    // load local bytebuffer for model file
+    fun loadModelFile(file: File): MappedByteBuffer {
+        val inputStream = FileInputStream(file)
+        val fileChannel = inputStream.channel
+        val startOffset = 0L
+        val declaredLength = file.length()
+        return fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength)
     }
 
     //invoke does not return image
