@@ -84,7 +84,7 @@ class MainActivity : AppCompatActivity(), WebSocketMessageListener,InstanceSegme
 
 
 		// Initialize Model Selection Dropdown (Spinner)
-//        setupModelSpinner()
+        setupModelSpinner()
 		// Initialize DrawImages
 		drawImages = DrawImages(applicationContext)
 
@@ -170,16 +170,19 @@ class MainActivity : AppCompatActivity(), WebSocketMessageListener,InstanceSegme
 	// Setup model selection spinner
 	private fun setupModelSpinner() {
 
-		val modelList = assets.list("")?.filter { it.endsWith(".tflite") || it.endsWith(".pt") } ?: listOf()
+//		val modelList = assets.list("")?.filter { it.endsWith(".tflite") || it.endsWith(".pt") } ?: listOf()
+		// Refresh model list and try selecting the model
+		val modelList= File(filesDir, "models")
+		all_model_list = modelList.list()?.toList() ?: emptyList()
 
 //        val modelList = listOf("best_float16.tflite", "best_float32.tflite")
-		all_model_list = modelList.toMutableList()
-		val adapter = ArrayAdapter(this, R.layout.simple_spinner_dropdown_item, modelList)
+		all_model_list = modelList.list()?.toList() ?: emptyList()
+		val adapter = ArrayAdapter(this, R.layout.simple_spinner_dropdown_item, all_model_list)
 		binding.spinnerModels.adapter = adapter
 
 		binding.spinnerModels.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
 			override fun onItemSelected(parent: AdapterView<*>, view: View?, position: Int, id: Long) {
-				selectedModel = modelList[position]
+				selectedModel = all_model_list[position]
 				initializeSegmentationModel()
 			}
 
@@ -410,7 +413,7 @@ class MainActivity : AppCompatActivity(), WebSocketMessageListener,InstanceSegme
 			binding.tvPostprocess.text = postProcessTime.toString()
 			binding.resultModel.text = message_cell_count
 		}
-		postJsonToServer(fileName, total_rbc, total_wbc, total_platelet)
+		postJsonToServer(image_url_temp, total_rbc, total_wbc, total_platelet)
 
 	}
 
@@ -699,6 +702,18 @@ class MainActivity : AppCompatActivity(), WebSocketMessageListener,InstanceSegme
 			Log.d("model present", "✅ Model present: $cleanModelName")
 			if (selectedModel != cleanModelName){
 				selectedModel = cleanModelName
+				val adapter = binding.spinnerModels.adapter
+				if (adapter != null) {
+					val position = (0 until adapter.count).firstOrNull {
+						adapter.getItem(it).toString() == selectedModel
+					}
+
+					if (position != null) {
+						binding.spinnerModels.setSelection(position)
+					} else {
+						Log.e("Spinner", "selectedModel not found in spinner items")
+					}
+				}
 				initializeSegmentationModel()
 				fetchImage(URL(imageUrl))
 			}
