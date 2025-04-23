@@ -47,7 +47,7 @@ import okio.ByteString
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
-
+import calculateSHA256
 
 class MainActivity : AppCompatActivity(), WebSocketMessageListener,InstanceSegmentation.InstanceSegmentationListener {
 	private lateinit var binding: ActivityMainBinding
@@ -83,8 +83,8 @@ class MainActivity : AppCompatActivity(), WebSocketMessageListener,InstanceSegme
 
 
 
-		// Initialize Model Selection Dropdown (Spinner)
-        setupModelSpinner()
+//		// Initialize Model Selection Dropdown (Spinner)
+//        setupModelSpinner()
 		// Initialize DrawImages
 		drawImages = DrawImages(applicationContext)
 
@@ -260,9 +260,11 @@ class MainActivity : AppCompatActivity(), WebSocketMessageListener,InstanceSegme
 				val contentDisposition = connection.getHeaderField("Content-Disposition")
 				if (contentDisposition != null && contentDisposition.contains("filename=")) {
 					val parts = contentDisposition.split("filename=")
+//					Log.d("check_file_name", "fetchImage: $parts ")
 					if (parts.size > 1) {
 						fileName = parts[1].replace("\"", "").trim()
 					}
+//					Log.d("check_file_name", "fetchImage: $parts  $fileName")
 				}
 
 				val input: InputStream = connection.inputStream
@@ -392,7 +394,7 @@ class MainActivity : AppCompatActivity(), WebSocketMessageListener,InstanceSegme
 			// Resize finalImage to screen width (both width and height)
 			val resizedFinalImage =
 				Bitmap.createScaledBitmap(finalImage, screenWidth, screenWidth, true)
-            val tempImageFile = bitmapToTempFile(applicationContext, finalImage)
+            val tempImageFile = bitmapToTempFile(applicationContext, finalImage,image_url_temp)
             uploadImage(tempImageFile)
 
             runOnUiThread {
@@ -527,33 +529,35 @@ class MainActivity : AppCompatActivity(), WebSocketMessageListener,InstanceSegme
 
 	}
 
-    fun bitmapToTempFile(context: Context, bitmap: Bitmap): File {
-        // Ensure the directory exists
-        val imagesDir = File(context.cacheDir, "images")
-        if (!imagesDir.exists()) {
-            imagesDir.mkdirs()  // Create the directory if it doesn't exist
-        }
+	fun bitmapToTempFile(context: Context, bitmap: Bitmap, imageUrl: String): File {
+		val imagesDir = File(context.cacheDir, "images")
+		if (!imagesDir.exists()) {
+			imagesDir.mkdirs()
+		}
 
-        // Now safely create the temp file inside it
-        val tempFile = File.createTempFile("BloodImage_", ".jpg", imagesDir)
+		// Extract the original filename from the URL
+		val originalFilename = imageUrl.substringAfterLast("/")
 
-        try {
-            FileOutputStream(tempFile).use { out ->
-                bitmap.compress(Bitmap.CompressFormat.JPEG, 100, out)
-            }
-        } catch (e: IOException) {
-            e.printStackTrace()
-        }
+		// Create file with exact name (no random suffix)
+		val file = File(imagesDir, originalFilename)
 
-        return tempFile
-    }
+		try {
+			FileOutputStream(file).use { out ->
+				bitmap.compress(Bitmap.CompressFormat.JPEG, 100, out)
+			}
+		} catch (e: IOException) {
+			e.printStackTrace()
+		}
 
-
-
-
+		return file
+	}
 
 
-    private fun uploadImage(imageFile: File) {
+
+
+
+
+	private fun uploadImage(imageFile: File) {
         val url = "http://192.168.1.5:8000/upload-image"
 
         val requestBody = imageFile.asRequestBody("image/jpeg".toMediaTypeOrNull())
@@ -702,19 +706,28 @@ class MainActivity : AppCompatActivity(), WebSocketMessageListener,InstanceSegme
 			Log.d("model present", "✅ Model present: $cleanModelName")
 			if (selectedModel != cleanModelName){
 				selectedModel = cleanModelName
-				val adapter = binding.spinnerModels.adapter
-				if (adapter != null) {
-					val position = (0 until adapter.count).firstOrNull {
-						adapter.getItem(it).toString() == selectedModel
-					}
-
-					if (position != null) {
-						binding.spinnerModels.setSelection(position)
-					} else {
-						Log.e("Spinner", "selectedModel not found in spinner items")
-					}
+//				val adapter = binding.spinnerModels.adapter
+//				if (adapter != null) {
+//					val position = (0 until adapter.count).firstOrNull {
+//						adapter.getItem(it).toString() == selectedModel
+//					}
+//
+//					if (position != null) {
+//						binding.spinnerModels.setSelection(position)
+//					} else {
+//						Log.e("Spinner", "selectedModel not found in spinner items")
+//					}
+//				}
+				val modelfileLoaded = File(filesDir, "models/$cleanModelName")
+				if(calculateSHA256(modelfileLoaded) != modelHash){
+					Log.e("ModelIntegrity", "❌ Hash mismatch. Model may be corrupted or tampered.")
+				}
+				else
+				{
+					Log.d("ModelIntegrity", "✅ Model hash matches")
 				}
 				initializeSegmentationModel()
+				binding.wsMessage.text = cleanModelName
 				fetchImage(URL(imageUrl))
 			}
 			else{
@@ -735,6 +748,18 @@ class MainActivity : AppCompatActivity(), WebSocketMessageListener,InstanceSegme
 						).show()
 						Log.d("MainActivity", "📁 Model file path: ${modelFile.absolutePath}")
 						selectedModel = cleanModelName
+
+						//checking hash of model
+						if(calculateSHA256(modelFile) != modelHash){
+							Log.e("ModelIntegrity", "❌ Hash mismatch. Model may be corrupted or tampered.")
+						}
+						else
+						{
+							Log.d("ModelIntegrity", "✅ Model hash matches")
+							binding.wsMessage.text = cleanModelName
+						}
+
+
 						initializeSegmentationModel()
 						fetchImage(URL(imageUrl))
 
@@ -794,14 +819,14 @@ fun downloadModelToLocal(context: Context, modelUrl: String, modelFileName: Stri
 				Log.e("ModelDownload", "❌ Error saving model", e)
 				onComplete(null)
 			}
-			if (modelDir.exists() && modelDir.isDirectory) {
-				val files = modelDir.listFiles()
-				files?.forEach {
-					Log.d("ModelDirectory", "📁 File: ${it.name}")
-				}
-			} else {
-				Log.e("ModelDirectory", "❌ Model directory not found")
-			}
+//			if (modelDir.exists() && modelDir.isDirectory) {
+//				val files = modelDir.listFiles()
+//				files?.forEach {
+//					Log.d("ModelDirectory", "📁 File: ${it.name}")
+//				}
+//			} else {
+//				Log.e("ModelDirectory", "❌ Model directory not found")
+//			}
 		}
 	})
 }
