@@ -30,7 +30,7 @@ class CustomWebSocketClient(
 ) {
 
     private lateinit var webSocketClient: WebSocketClient
-    private val serverUri = URI("ws://192.168.1.5:8000/ws/$clientId") // Replace with your server IP
+    private val serverUri = URI("ws://192.168.1.3:8000/ws/$clientId") // Replace with your server IP
     private val reconnectDelayMillis: Long = 5000
     private var shouldReconnect = true // 🔁 Flag to control reconnection
     private val handler = Handler(Looper.getMainLooper())

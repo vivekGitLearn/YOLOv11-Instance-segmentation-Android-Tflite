@@ -10,7 +10,7 @@ class FileReceiverClient(private val context: Context) {
 
     fun connectAndReceiveFile(clientId: String) {
         val request = Request.Builder()
-            .url("ws://192.168.1.5:8000/ws_send_file/$clientId") // Use your server IP
+            .url("ws://192.168.1.3:8000/ws_send_file/$clientId") // Use your server IP
             .build()
 
         val client = OkHttpClient()

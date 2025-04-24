@@ -11,7 +11,7 @@ class WebSocketClient(private val listener: WebSocketListenerCallback) {
     fun startWebSocket() {
         val clientId = UUID.randomUUID().toString()  // 👈 Or store in SharedPreferences
         val request = Request.Builder()
-            .url("ws://192.168.1.5:8000/ws/$clientId") // Replace with your IP
+            .url("ws://192.168.1.3:8000/ws/$clientId") // Replace with your IP
             .build()
 
         val client = OkHttpClient()

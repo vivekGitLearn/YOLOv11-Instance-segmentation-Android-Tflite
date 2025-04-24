@@ -40,6 +40,7 @@ import java.io.IOException
 import java.util.UUID
 import android.content.res.AssetManager
 import  android.content.Context
+import android.content.Intent
 import kotlinx.coroutines.CoroutineScope
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.RequestBody.Companion.asRequestBody
@@ -51,7 +52,7 @@ import calculateSHA256
 
 class MainActivity : AppCompatActivity(), WebSocketMessageListener,InstanceSegmentation.InstanceSegmentationListener {
 	private lateinit var binding: ActivityMainBinding
-	private lateinit var instanceSegmentation: InstanceSegmentation
+	private var instanceSegmentation: InstanceSegmentation? =null
 	private lateinit var drawImages: DrawImages
 	private var selectedModel ="best_float16.tflite"
 	private val VIDEO_PICK_CODE = 2001
@@ -69,6 +70,16 @@ class MainActivity : AppCompatActivity(), WebSocketMessageListener,InstanceSegme
 	var image_url_temp = ""
 	override fun onCreate(savedInstanceState: Bundle?) {
 		super.onCreate(savedInstanceState)
+
+		val sharedPref = getSharedPreferences("MyPrefs", MODE_PRIVATE)
+		val isLoggedIn = sharedPref.getBoolean("isLoggedIn", false)
+
+		if (!isLoggedIn) {
+			startActivity(Intent(this, LoginAndSignUp::class.java))
+			finish()
+			return
+		} else {
+
 		binding = ActivityMainBinding.inflate(layoutInflater)
 		setContentView(binding.root)
 		enableEdgeToEdge()
@@ -77,10 +88,9 @@ class MainActivity : AppCompatActivity(), WebSocketMessageListener,InstanceSegme
 //        Set client id
 		val clientId = getOrCreateClientId(this)
 		Log.d("CLIENT_ID", "Generated or fetched client ID: $clientId")
-		binding.websocketId.text =clientId.toString()
+		binding.websocketId.text = clientId.toString()
 		val webSocketClient = CustomWebSocketClient(this, clientId)
 		webSocketClient.connect()
-
 
 
 //		// Initialize Model Selection Dropdown (Spinner)
@@ -95,22 +105,21 @@ class MainActivity : AppCompatActivity(), WebSocketMessageListener,InstanceSegme
 
 		binding.videoSwitch.setOnCheckedChangeListener { _, isChecked ->
 			if (isChecked) {
-				binding.videoSwitch.text ="SREAMING ON"
+				binding.videoSwitch.text = "SREAMING ON"
 				binding.videoSwitch.setTextColor(Color.GREEN)
 				showVideoWithOverlay = true
 //                Log.d("videoSwitch", "onCreate:$showVideoWithOverlay ")
 				binding.ivTop.visibility = View.VISIBLE
 				binding.ivTopVideo.visibility = View.GONE
-			}
-			else{
-				binding.videoSwitch.text ="SREAMING OFF"
+			} else {
+				binding.videoSwitch.text = "SREAMING OFF"
 				binding.videoSwitch.setTextColor(Color.RED)
 				showVideoWithOverlay = false
 				binding.ivTop.visibility = View.GONE
 				binding.ivTopVideo.visibility = View.GONE
 //                Log.d("videoSwitch", "onCreate:$showVideoWithOverlay ")
 			}
-			}
+		}
 
 //        Botton to select image from APIS
 		binding.ApiButton.setOnClickListener {
@@ -134,11 +143,10 @@ class MainActivity : AppCompatActivity(), WebSocketMessageListener,InstanceSegme
 
 		// Set up button to select image from gallery
 		binding.buttonSelectImage.setOnClickListener {
-			if(showVideoWithOverlay) {
+			if (showVideoWithOverlay) {
 				binding.ivTop.visibility = View.VISIBLE
 				binding.ivTopVideo.visibility = View.GONE
-			}
-			else{
+			} else {
 				binding.ivTop.visibility = View.GONE
 				binding.ivTopVideo.visibility = View.GONE
 			}
@@ -149,10 +157,9 @@ class MainActivity : AppCompatActivity(), WebSocketMessageListener,InstanceSegme
 		}
 		// Set up button to select video from gallery
 		binding.buttonSelectVideo.setOnClickListener {
-			if(showVideoWithOverlay) {
+			if (showVideoWithOverlay) {
 				binding.ivTop.visibility = View.VISIBLE
-			}
-			else{
+			} else {
 				binding.ivTop.visibility = View.GONE
 			}
 //            binding.ivTopVideo.visibility = View.VISIBLE
@@ -160,11 +167,11 @@ class MainActivity : AppCompatActivity(), WebSocketMessageListener,InstanceSegme
 
 
 			video_mode = 1
-			total_processed_frame =0
+			total_processed_frame = 0
 			pickVideoLauncher.launch("video/*")
 		}
 
-
+	}
 	}
 
 	// Setup model selection spinner
@@ -289,7 +296,7 @@ class MainActivity : AppCompatActivity(), WebSocketMessageListener,InstanceSegme
 	private fun fetchImage(){
 		try{
 
-			val url: URL = URL("http://192.168.1.5:8000/get-task/")
+			val url: URL = URL("http://192.168.1.3:8000/get-task/")
 			val connection = url.openConnection() as HttpURLConnection
 			connection.doInput = true
 			connection.connect()
@@ -325,9 +332,9 @@ class MainActivity : AppCompatActivity(), WebSocketMessageListener,InstanceSegme
 		total_platelet = 0
 		val scaledBitmap = Bitmap.createScaledBitmap(bitmap, 256, 256, true) // Resize if needed
 		if(showVideoWithOverlay)
-			instanceSegmentation.invoke1(scaledBitmap)
+			instanceSegmentation?.invoke1(scaledBitmap)
 		else
-			instanceSegmentation.invoke(scaledBitmap)
+			instanceSegmentation?.invoke(scaledBitmap)
 	}
 
 	override fun onError(error: String) {
@@ -355,7 +362,7 @@ class MainActivity : AppCompatActivity(), WebSocketMessageListener,InstanceSegme
 		total_platelet = total_platelet + plateletCount
 
 //        get label
-		val label = instanceSegmentation.getLabels()
+		val label = instanceSegmentation?.getLabels()
 		Log.d("MainActivity", "onDetect:clss name $classCounts ")
 		val message_cell_count = "Rcb: $total_rbc Wbc: $total_wbc Platelet: $total_platelet"
 
@@ -405,7 +412,7 @@ class MainActivity : AppCompatActivity(), WebSocketMessageListener,InstanceSegme
 
         }
 		//  get label
-		val label = instanceSegmentation.getLabels()
+		val label = instanceSegmentation?.getLabels()
 		Log.d("MainActivity", "onDetect:clss name $classCounts ")
 		val message_cell_count = "Rcb: $total_rbc Wbc: $total_wbc Platelet: $total_platelet"
 
@@ -427,7 +434,7 @@ class MainActivity : AppCompatActivity(), WebSocketMessageListener,InstanceSegme
 
 	override fun onDestroy() {
 		super.onDestroy()
-		instanceSegmentation.close()
+		instanceSegmentation?.close()
 	}
 
 	companion object {
@@ -502,13 +509,13 @@ class MainActivity : AppCompatActivity(), WebSocketMessageListener,InstanceSegme
 					if(showVideoWithOverlay) {
 						frameIntervalMs = 230L
 						runOnUiThread {
-							instanceSegmentation.invoke1(scaledBitmap)
+							instanceSegmentation?.invoke1(scaledBitmap)
 						}
 					}
 					else{
 						frameIntervalMs = 70L
 						runOnUiThread {
-							instanceSegmentation.invoke(scaledBitmap)
+							instanceSegmentation?.invoke(scaledBitmap)
 						}
 					}
 						total_processed_frame+=1
@@ -558,7 +565,7 @@ class MainActivity : AppCompatActivity(), WebSocketMessageListener,InstanceSegme
 
 
 	private fun uploadImage(imageFile: File) {
-        val url = "http://192.168.1.5:8000/upload-image"
+        val url = "http://192.168.1.3:8000/upload-image"
 
         val requestBody = imageFile.asRequestBody("image/jpeg".toMediaTypeOrNull())
         val multipartBody = MultipartBody.Builder()
@@ -596,7 +603,7 @@ class MainActivity : AppCompatActivity(), WebSocketMessageListener,InstanceSegme
 
 
     private fun postJsonToServer(Filename: String,Rbc: Int, Wbc: Int, Platelet: Int) {
-		val url = "http://192.168.1.5:8000/append-json"
+		val url = "http://192.168.1.3:8000/append-json"
 
 		// Build your JSON object
 		val json = JSONObject().apply {
@@ -706,18 +713,7 @@ class MainActivity : AppCompatActivity(), WebSocketMessageListener,InstanceSegme
 			Log.d("model present", "✅ Model present: $cleanModelName")
 			if (selectedModel != cleanModelName){
 				selectedModel = cleanModelName
-//				val adapter = binding.spinnerModels.adapter
-//				if (adapter != null) {
-//					val position = (0 until adapter.count).firstOrNull {
-//						adapter.getItem(it).toString() == selectedModel
-//					}
-//
-//					if (position != null) {
-//						binding.spinnerModels.setSelection(position)
-//					} else {
-//						Log.e("Spinner", "selectedModel not found in spinner items")
-//					}
-//				}
+
 				val modelfileLoaded = File(filesDir, "models/$cleanModelName")
 				if(calculateSHA256(modelfileLoaded) != modelHash){
 					Log.e("ModelIntegrity", "❌ Hash mismatch. Model may be corrupted or tampered.")
@@ -819,14 +815,6 @@ fun downloadModelToLocal(context: Context, modelUrl: String, modelFileName: Stri
 				Log.e("ModelDownload", "❌ Error saving model", e)
 				onComplete(null)
 			}
-//			if (modelDir.exists() && modelDir.isDirectory) {
-//				val files = modelDir.listFiles()
-//				files?.forEach {
-//					Log.d("ModelDirectory", "📁 File: ${it.name}")
-//				}
-//			} else {
-//				Log.e("ModelDirectory", "❌ Model directory not found")
-//			}
 		}
 	})
 }
