@@ -85,9 +85,13 @@ class MainActivity : AppCompatActivity(), WebSocketMessageListener,InstanceSegme
 		enableEdgeToEdge()
 
 
-//        Set client id
-		val clientId = getOrCreateClientId(this)
-		Log.d("CLIENT_ID", "Generated or fetched client ID: $clientId")
+////        Set client id
+//		val clientId = getOrCreateClientId(this)
+
+			val sharedPref = getSharedPreferences("MyPrefs", MODE_PRIVATE)
+			val clientId = sharedPref.getString("deviceUUID", getOrCreateClientId(this))!!
+
+			Log.d("CLIENT_ID", "Generated or fetched client ID: $clientId")
 		binding.websocketId.text = clientId.toString()
 		val webSocketClient = CustomWebSocketClient(this, clientId)
 		webSocketClient.connect()
