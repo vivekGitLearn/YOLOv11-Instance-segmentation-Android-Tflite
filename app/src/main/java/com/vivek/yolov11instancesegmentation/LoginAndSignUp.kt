@@ -68,9 +68,9 @@ class LoginAndSignUp : AppCompatActivity() {
             }
 
             val url = if (isLoginMode)
-                "http://192.168.1.3:8000/users/login"
+                "${Constants.BASE_URL}/users/login"
             else
-                "http://192.168.1.3:8000/users/signup"
+                "${Constants.BASE_URL}/users/signup"
 
             val request = Request.Builder()
                 .url(url)

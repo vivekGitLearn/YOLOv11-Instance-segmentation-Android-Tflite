@@ -300,7 +300,7 @@ class MainActivity : AppCompatActivity(), WebSocketMessageListener,InstanceSegme
 	private fun fetchImage(){
 		try{
 
-			val url: URL = URL("http://192.168.1.3:8000/get-task/")
+			val url: URL = URL("${Constants.BASE_URL}/get-task/")
 			val connection = url.openConnection() as HttpURLConnection
 			connection.doInput = true
 			connection.connect()
@@ -569,7 +569,7 @@ class MainActivity : AppCompatActivity(), WebSocketMessageListener,InstanceSegme
 
 
 	private fun uploadImage(imageFile: File) {
-        val url = "http://192.168.1.3:8000/upload-image"
+        val url = "${Constants.BASE_URL}/upload-image"
 
         val requestBody = imageFile.asRequestBody("image/jpeg".toMediaTypeOrNull())
         val multipartBody = MultipartBody.Builder()
@@ -607,7 +607,7 @@ class MainActivity : AppCompatActivity(), WebSocketMessageListener,InstanceSegme
 
 
     private fun postJsonToServer(Filename: String,Rbc: Int, Wbc: Int, Platelet: Int) {
-		val url = "http://192.168.1.3:8000/append-json"
+		val url = "${Constants.BASE_URL}/append-json"
 
 		// Build your JSON object
 		val json = JSONObject().apply {

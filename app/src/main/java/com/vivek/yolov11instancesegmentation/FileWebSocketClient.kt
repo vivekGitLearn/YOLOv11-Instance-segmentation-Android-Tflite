@@ -14,7 +14,7 @@ class FileWebSocketClient(private val context: Context) {
     fun connectAndSendFile(file: File) {
         val clientId = UUID.randomUUID().toString()
         val request = Request.Builder()
-            .url("ws://192.168.1.3:8000/ws/$clientId")  // Replace with your server
+            .url("${Constants.WS_URL}/ws/$clientId")  // Replace with your server
             .build()
 
         webSocket = client.newWebSocket(request, object : WebSocketListener() {
