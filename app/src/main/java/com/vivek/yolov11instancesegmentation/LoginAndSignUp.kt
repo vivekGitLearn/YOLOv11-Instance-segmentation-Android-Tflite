@@ -57,7 +57,8 @@ class LoginAndSignUp : AppCompatActivity() {
                     val deviceJson = JSONObject().apply {
                         put("device_name", "Android Device")
                         put("device_type", "Android")
-                        put("deviceUUID", deviceUUID)
+                        put("device_uuid", deviceUUID)
+                        put("status",1)
                     }
                     put("device", deviceJson)
                 } else {

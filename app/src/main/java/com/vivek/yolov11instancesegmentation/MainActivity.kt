@@ -3,6 +3,9 @@ package com.vivek.yolov11instancesegmentation
 
 import android.Manifest
 import android.R
+import android.content.Context
+import android.content.Intent
+import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -22,33 +25,27 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.lifecycle.lifecycleScope
-import com.bumptech.glide.Glide
+import calculateSHA256
 import com.vivek.yolov11instancesegmentation.databinding.ActivityMainBinding
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import okhttp3.*
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.RequestBody.Companion.asRequestBody
+import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONObject
+import java.io.File
+import java.io.FileOutputStream
+import java.io.IOException
 import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.URL
 import java.time.Duration
 import java.time.LocalTime
-import kotlin.math.log
-import okhttp3.*
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.RequestBody.Companion.toRequestBody
-import org.json.JSONObject
-import java.io.IOException
 import java.util.UUID
-import android.content.res.AssetManager
-import  android.content.Context
-import android.content.Intent
-import kotlinx.coroutines.CoroutineScope
-import okhttp3.MediaType.Companion.toMediaTypeOrNull
-import okhttp3.RequestBody.Companion.asRequestBody
-import okio.ByteString
-import java.io.ByteArrayOutputStream
-import java.io.File
-import java.io.FileOutputStream
-import calculateSHA256
 
 class MainActivity : AppCompatActivity(), WebSocketMessageListener,InstanceSegmentation.InstanceSegmentationListener {
 	private lateinit var binding: ActivityMainBinding
@@ -68,10 +65,13 @@ class MainActivity : AppCompatActivity(), WebSocketMessageListener,InstanceSegme
 	var all_model_list: List<String> = mutableListOf()
 	var job_id_temp = ""
 	var image_url_temp = ""
+	// Declare sharedPref at the class level
+	private lateinit var sharedPref: SharedPreferences
+
 	override fun onCreate(savedInstanceState: Bundle?) {
 		super.onCreate(savedInstanceState)
 
-		val sharedPref = getSharedPreferences("MyPrefs", MODE_PRIVATE)
+		sharedPref = getSharedPreferences("MyPrefs", MODE_PRIVATE)
 		val isLoggedIn = sharedPref.getBoolean("isLoggedIn", false)
 
 		if (!isLoggedIn) {
@@ -90,7 +90,7 @@ class MainActivity : AppCompatActivity(), WebSocketMessageListener,InstanceSegme
 
 			val sharedPref = getSharedPreferences("MyPrefs", MODE_PRIVATE)
 			val clientId = sharedPref.getString("deviceUUID", getOrCreateClientId(this))!!
-
+			setClientStatus(1)
 			Log.d("CLIENT_ID", "Generated or fetched client ID: $clientId")
 		binding.websocketId.text = clientId.toString()
 		val webSocketClient = CustomWebSocketClient(this, clientId)
@@ -438,7 +438,10 @@ class MainActivity : AppCompatActivity(), WebSocketMessageListener,InstanceSegme
 
 	override fun onDestroy() {
 		super.onDestroy()
+		Log.d("MainActivity", "onDestroy called ")
 		instanceSegmentation?.close()
+		setClientStatus(0)
+
 	}
 
 	companion object {
@@ -822,7 +825,41 @@ fun downloadModelToLocal(context: Context, modelUrl: String, modelFileName: Stri
 		}
 	})
 }
+	private fun setClientStatus(status: Int) {
+		val deviceUuid = getOrCreateClientId(this)
 
+		val client = OkHttpClient()
+
+		val urlBuilder = "${Constants.BASE_URL}/client/set_client_status".toHttpUrlOrNull()
+			?.newBuilder()
+			?.addQueryParameter("device_uuid", deviceUuid)
+			?.addQueryParameter("status", status.toString())
+
+
+		if (urlBuilder == null) {
+			Log.e("StatusUpdate", "Invalid URL")
+			return
+		}
+
+		val request = Request.Builder()
+			.url(urlBuilder.build())
+			.get()
+			.build()
+
+		client.newCall(request).enqueue(object : Callback {
+			override fun onFailure(call: Call, e: IOException) {
+				Log.e("StatusUpdate", "Failed to update status: ${e.message}")
+			}
+
+			override fun onResponse(call: Call, response: Response) {
+				if (response.isSuccessful) {
+					Log.d("StatusUpdate", "Successfully updated client status!")
+				} else {
+					Log.e("StatusUpdate", "Failed to update client status! Code: ${response.code}")
+				}
+			}
+		})
+	}
 
 }
 
