@@ -4,7 +4,7 @@
     <selectionStates>
       <SelectionState runConfigName="app">
         <option name="selectionMode" value="DIALOG" />
-        <DropdownSelection timestamp="2025-04-28T03:11:57.445778300Z">
+        <DropdownSelection timestamp="2025-04-29T11:26:16.121296800Z">
           <Target type="DEFAULT_BOOT">
             <handle>
               <DeviceId pluginId="LocalEmulator" identifier="path=C:\Users\vivek\.android\avd\Pixel_6_Pro_API_VanillaIceCream.avd" />
@@ -15,12 +15,12 @@
           <targets>
             <Target type="DEFAULT_BOOT">
               <handle>
-                <DeviceId pluginId="LocalEmulator" identifier="path=C:\Users\vivek\.android\avd\Pixel_6_Pro_API_VanillaIceCream.avd" />
+                <DeviceId pluginId="PhysicalDevice" identifier="serial=11f149e0" />
               </handle>
             </Target>
             <Target type="DEFAULT_BOOT">
               <handle>
-                <DeviceId pluginId="PhysicalDevice" identifier="serial=11f149e0" />
+                <DeviceId pluginId="LocalEmulator" identifier="path=C:\Users\vivek\.android\avd\Pixel_6_Pro_API_VanillaIceCream.avd" />
               </handle>
             </Target>
           </targets>

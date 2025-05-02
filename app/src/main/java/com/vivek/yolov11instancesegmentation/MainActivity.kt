@@ -598,7 +598,7 @@ class MainActivity : AppCompatActivity(), WebSocketMessageListener,InstanceSegme
                 Log.d("UPLOAD_IMAGE", "Response: $body")
                 runOnUiThread {
                     if (response.isSuccessful) {
-                        Toast.makeText(applicationContext, "Upload success!", Toast.LENGTH_SHORT).show()
+//                        Toast.makeText(applicationContext, "Upload success!", Toast.LENGTH_SHORT).show()
                     } else {
                         Toast.makeText(applicationContext, "Server error: ${response.code}", Toast.LENGTH_SHORT).show()
                     }
@@ -620,6 +620,7 @@ class MainActivity : AppCompatActivity(), WebSocketMessageListener,InstanceSegme
 			put("platelet", Platelet)
 			put("model_name", selectedModel)
 			put("job_id",job_id_temp)
+			put("clientId",getOrCreateClientId(this@MainActivity))
 		}
 
 		val mediaType = "application/json; charset=utf-8".toMediaType()
@@ -648,7 +649,7 @@ class MainActivity : AppCompatActivity(), WebSocketMessageListener,InstanceSegme
 						val responseBody = response.body?.string()
 						Log.d("POST_JSON", "Response: $responseBody")
 						runOnUiThread {
-							Toast.makeText(applicationContext, "JSON sent successfully!", Toast.LENGTH_SHORT).show()
+//							Toast.makeText(applicationContext, "JSON sent successfully!", Toast.LENGTH_SHORT).show()
 						}
 					}
 				}
