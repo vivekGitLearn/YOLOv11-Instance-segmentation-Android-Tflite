@@ -65,6 +65,7 @@ class MainActivity : AppCompatActivity(), WebSocketMessageListener,InstanceSegme
 	var all_model_list: List<String> = mutableListOf()
 	var job_id_temp = ""
 	var image_url_temp = ""
+
 	// Declare sharedPref at the class level
 	private lateinit var sharedPref: SharedPreferences
 
@@ -406,7 +407,7 @@ class MainActivity : AppCompatActivity(), WebSocketMessageListener,InstanceSegme
 			val resizedFinalImage =
 				Bitmap.createScaledBitmap(finalImage, screenWidth, screenWidth, true)
             val tempImageFile = bitmapToTempFile(applicationContext, finalImage,image_url_temp)
-            uploadImage(tempImageFile)
+            uploadImage(tempImageFile,job_id_temp)
 
             runOnUiThread {
 					binding.ivTop.setImageBitmap(resizedFinalImage)
@@ -571,13 +572,14 @@ class MainActivity : AppCompatActivity(), WebSocketMessageListener,InstanceSegme
 
 
 
-	private fun uploadImage(imageFile: File) {
+	private fun uploadImage(imageFile: File, folderName: String) {
         val url = "${Constants.BASE_URL}/upload-image"
 
         val requestBody = imageFile.asRequestBody("image/jpeg".toMediaTypeOrNull())
         val multipartBody = MultipartBody.Builder()
             .setType(MultipartBody.FORM)
             .addFormDataPart("file", imageFile.name, requestBody)
+			.addFormDataPart("foldername", folderName)
             .build()
 
         val request = Request.Builder()
@@ -610,7 +612,9 @@ class MainActivity : AppCompatActivity(), WebSocketMessageListener,InstanceSegme
 
 
     private fun postJsonToServer(Filename: String,Rbc: Int, Wbc: Int, Platelet: Int) {
-		val url = "${Constants.BASE_URL}/append-json"
+		val url = "${Constants.BASE_URL}/append-json?foldername=${job_id_temp}"
+
+
 
 		// Build your JSON object
 		val json = JSONObject().apply {
@@ -708,11 +712,11 @@ class MainActivity : AppCompatActivity(), WebSocketMessageListener,InstanceSegme
 		returnType: String,
 		returnUrl: String
 	) {
-		Log.d("MainActivity", "🛠 Assigned Job: $jobId")
-		Log.d("MainActivity", "modelName: $modelName")
-		Log.d("MainActivity", "modelUrl: $modelUrl")
-		Log.d("MainActivity", "modelHash: $modelHash")
-		Log.d("MainActivity", "imageUrl: $imageUrl")
+//		Log.d("MainActivity", "🛠 Assigned Job: $jobId")
+//		Log.d("MainActivity", "modelName: $modelName")
+//		Log.d("MainActivity", "modelUrl: $modelUrl")
+//		Log.d("MainActivity", "modelHash: $modelHash")
+//		Log.d("MainActivity", "imageUrl: $imageUrl")
 		job_id_temp = jobId
 		image_url_temp= imageUrl
 		val cleanModelName = modelName.trim().replace(" ", "")
