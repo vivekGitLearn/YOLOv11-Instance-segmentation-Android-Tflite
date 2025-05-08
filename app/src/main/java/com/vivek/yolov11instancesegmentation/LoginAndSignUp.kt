@@ -95,6 +95,7 @@ class LoginAndSignUp : AppCompatActivity() {
                                 with(sharedPref.edit()) {
                                     putBoolean("isLoggedIn", true)
                                     putString("deviceUUID", deviceUUID)
+                                    putString("email", email)
                                     apply()
                                 }
 
