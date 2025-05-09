@@ -57,9 +57,6 @@ class MainActivity : AppCompatActivity(),InstanceSegmentation.InstanceSegmentati
 	private var instanceSegmentation: InstanceSegmentation? =null
 	private lateinit var drawImages: DrawImages
 	private var selectedModel ="best_float16.tflite"
-	private val VIDEO_PICK_CODE = 2001
-	private var video_mode = 0
-	private var total_processed_frame =0
 	private  var Start_time = LocalTime.now()
 	private var showVideoWithOverlay = true
 	private val client = OkHttpClient()
@@ -72,6 +69,9 @@ class MainActivity : AppCompatActivity(),InstanceSegmentation.InstanceSegmentati
 	var task_status = "not_started"
 	var poling_number = 0
 	var model_hash_online = ""
+	var model_hash_local = ""
+	var active_model_name =""
+	var integrity_check = false
 	// Declare sharedPref at the class level
 	private lateinit var sharedPref: SharedPreferences
 
@@ -106,40 +106,15 @@ class MainActivity : AppCompatActivity(),InstanceSegmentation.InstanceSegmentati
 
 
 
-		// Initialize DrawImages
-		drawImages = DrawImages(applicationContext)
+			// Initialize DrawImages
+			drawImages = DrawImages(applicationContext)
 
-		// Request permissions
-		checkPermission()
-
-
-////        Botton to select image from APIS
-//		binding.ApiButton.setOnClickListener {
-//
-//
-//			video_mode = 0
-//			// Inside your onClick or wherever you're calling fetchImage
-//			lifecycleScope.launch(Dispatchers.IO) {
-//				getNextTask()
-//			}
-//		}
+			// Request permissions
+			checkPermission()
 			startPollingTasksLoop()
 		}
 	}
 
-	// Setup model selection spinner
-	private fun setupModelSpinner() {
-
-//		val modelList = assets.list("")?.filter { it.endsWith(".tflite") || it.endsWith(".pt") } ?: listOf()
-		// Refresh model list and try selecting the model
-		val modelList= File(filesDir, "models")
-		all_model_list = modelList.list()?.toList() ?: emptyList()
-
-//        val modelList = listOf("best_float16.tflite", "best_float32.tflite")
-		all_model_list = modelList.list()?.toList() ?: emptyList()
-		val adapter = ArrayAdapter(this, R.layout.simple_spinner_dropdown_item, all_model_list)
-
-	}
 	private fun initializeSegmentationModel() {
 		instanceSegmentation = InstanceSegmentation(
 			context = applicationContext,
@@ -166,8 +141,8 @@ class MainActivity : AppCompatActivity(),InstanceSegmentation.InstanceSegmentati
 			requestPermissionLauncher.launch(REQUIRED_PERMISSIONS)
 		}
 	}
-	//    val bitmap = Bitmap.createBitmap(256, 256, Bitmap.Config.ARGB_8888)
-	// Image Picker: Opens the gallery
+
+
 	private var selectedBaseBitmap: Bitmap? = null
 
 	private fun fetchImage(url:URL){
@@ -191,8 +166,6 @@ class MainActivity : AppCompatActivity(),InstanceSegmentation.InstanceSegmentati
 
 				val input: InputStream = connection.inputStream
 				selectedBaseBitmap = BitmapFactory.decodeStream(input)
-//            runOnUiThread{binding.ivTop.setImageBitmap(selectedBaseBitmap)}
-//            selectedBaseBitmap = BitmapFactory.decodeStream(input)
 				selectedBaseBitmap?.let { bitmap -> processImage(bitmap) }
 
 			} catch (E: Exception) {
@@ -205,41 +178,6 @@ class MainActivity : AppCompatActivity(),InstanceSegmentation.InstanceSegmentati
 			}
 		}
 	}
-
-
-
-//	private fun fetchImage(){
-//		try{
-//
-//			val url: URL = URL("${Constants.BASE_URL}/get-task/")
-//			val connection = url.openConnection() as HttpURLConnection
-//			connection.doInput = true
-//			connection.connect()
-//			// 🔹 Content-Disposition (may include filename if server sets it)
-//			val contentDisposition = connection.getHeaderField("Content-Disposition")
-//			if (contentDisposition != null && contentDisposition.contains("filename=")) {
-//				val parts = contentDisposition.split("filename=")
-//				if (parts.size > 1) {
-//					fileName = parts[1].replace("\"", "").trim()
-//				}
-//			}
-//
-//			val input: InputStream = connection.inputStream
-//			selectedBaseBitmap = BitmapFactory.decodeStream(input)
-////            runOnUiThread{binding.ivTop.setImageBitmap(selectedBaseBitmap)}
-////            selectedBaseBitmap = BitmapFactory.decodeStream(input)
-//			selectedBaseBitmap?.let { bitmap -> processImage(bitmap) }
-//
-//		}
-//		catch (E:Exception){
-//			E.printStackTrace()
-//			Log.d("Fetch image", "fetchImage:${E.message} ")
-//			runOnUiThread {
-//				Toast.makeText(applicationContext, "Failed to load image", Toast.LENGTH_SHORT).show()
-//			}
-//		}
-//	}
-
 
 
 	// Process selected image
@@ -375,55 +313,67 @@ class MainActivity : AppCompatActivity(),InstanceSegmentation.InstanceSegmentati
 
 
 	private fun uploadImage(imageFile: File, folderName: String) {
-        val url = "${Constants.BASE_URL}/task/submit-result"
-		Log.d("UPLOAD_IMAGE", "URL: $url")
-		Log.d("randomId", "randomId: $temp_task_id")
-		Log.d("UPLOAD_IMAGE", "Folder Name: $folderName")
+		if(integrity_check){
+			val url = "${Constants.BASE_URL}/task/submit-result"
+			Log.d("UPLOAD_IMAGE", "URL: $url")
+			Log.d("randomId", "randomId: $temp_task_id")
+			Log.d("UPLOAD_IMAGE", "Folder Name: $folderName")
 //
 //        val url = "${Constants.BASE_URL}/upload-image"
-        val requestBody = imageFile.asRequestBody("image/jpeg".toMediaTypeOrNull())
-		val multipartBody = MultipartBody.Builder()
-			.setType(MultipartBody.FORM)
-			.addFormDataPart("result_image", imageFile.name, requestBody)
-			.addFormDataPart("folder_path", folderName) // 🔄 corrected from "foldername"
-			.addFormDataPart("device_id", getOrCreateClientId(this))
-			.addFormDataPart("random_id", temp_task_id)
-			.addFormDataPart("result", result_of_inference)
-			.build()
+			val requestBody = imageFile.asRequestBody("image/jpeg".toMediaTypeOrNull())
+			val multipartBody = MultipartBody.Builder()
+				.setType(MultipartBody.FORM)
+				.addFormDataPart("result_image", imageFile.name, requestBody)
+				.addFormDataPart("folder_path", folderName) // 🔄 corrected from "foldername"
+				.addFormDataPart("device_id", getOrCreateClientId(this))
+				.addFormDataPart("random_id", temp_task_id)
+				.addFormDataPart("result", result_of_inference)
+				.build()
 
 
-		val request = Request.Builder()
-            .url(url)
-            .post(multipartBody)
-            .build()
+			val request = Request.Builder()
+				.url(url)
+				.post(multipartBody)
+				.build()
 
-        client.newCall(request).enqueue(object : Callback {
-            override fun onFailure(call: Call, e: IOException) {
-                e.printStackTrace()
-                runOnUiThread {
-                    Toast.makeText(applicationContext, "Upload failed: ${e.message}", Toast.LENGTH_SHORT).show()
-					Log.d("UPLOAD_IMAGE", "Upload failed: ${e.message}")
-                }
-            }
-
-			override fun onResponse(call: Call, response: Response) {
-				val body = response.body?.string()
-				Log.d("UPLOAD_IMAGE", "Response: $body")
-				runOnUiThread {
-					if (response.isSuccessful) {
-						if (body != null && body.contains("Task result submitted successfully")) {
-							task_status = "task result submitted successfully"
-							Log.d("TASK", "Task submitted, ready for next one")
-						}
-					} else {
-						Toast.makeText(applicationContext, "Server error: ${response.code}", Toast.LENGTH_SHORT).show()
+			client.newCall(request).enqueue(object : Callback {
+				override fun onFailure(call: Call, e: IOException) {
+					e.printStackTrace()
+					runOnUiThread {
+						Toast.makeText(
+							applicationContext,
+							"Upload failed: ${e.message}",
+							Toast.LENGTH_SHORT
+						).show()
+						Log.d("UPLOAD_IMAGE", "Upload failed: ${e.message}")
 					}
 				}
-			}
 
-		})
+				override fun onResponse(call: Call, response: Response) {
+					val body = response.body?.string()
+					Log.d("UPLOAD_IMAGE", "Response: $body")
+					runOnUiThread {
+						if (response.isSuccessful) {
+							if (body != null && body.contains("Task result submitted successfully")) {
+								task_status = "task result submitted successfully"
+								Log.d("TASK", "Task submitted, ready for next one")
+							}
+						} else {
+							Toast.makeText(
+								applicationContext,
+								"Server error: ${response.code}",
+								Toast.LENGTH_SHORT
+							).show()
+						}
+					}
+				}
+
+			})
+		}
     }
 
+
+//	poling Apis
 	private fun startPollingTasksLoop() {
 		lifecycleScope.launch(Dispatchers.IO) {
 			while (true) {
@@ -436,6 +386,8 @@ class MainActivity : AppCompatActivity(),InstanceSegmentation.InstanceSegmentati
 						binding.inferenceStatus.text = "inferencing...."
 						binding.inferenceStatus.setTextColor(Color.parseColor("#009688"))
 					}
+					if(model_hash_online == "")
+						getModelHash(active_model_name)
 
 //					binding.ApiButton.setBackgroundColor(Color.parseColor("#009688"))
 
@@ -453,9 +405,8 @@ class MainActivity : AppCompatActivity(),InstanceSegmentation.InstanceSegmentati
 						binding.inferenceStatus.text = "Waiting for task"
 						binding.inferenceStatus.setTextColor(Color.parseColor("#E53935"))
 					}
-//					binding.ApiButton.setBackgroundColor(Color.parseColor("#E53935"))
 				}
-				delay(500)  // Wait 3 seconds before next check
+				delay(500)  // Wait 0.5 seconds before next check
 				Log.d("TASK_LOOP", "startPollingTasksLoop: checking For task $task_status")
 			}
 		}
@@ -577,7 +528,7 @@ class MainActivity : AppCompatActivity(),InstanceSegmentation.InstanceSegmentati
 						job_id_temp = patientId
 						image_url_temp = imageUrl
 						temp_task_id = taskId
-
+						active_model_name = cleanModelName
 						// Print individual values
 						Log.d("NextTask", "Patient ID: $patientId")
 						Log.d("NextTask", "Image URL: $imageUrl")
@@ -592,16 +543,27 @@ class MainActivity : AppCompatActivity(),InstanceSegmentation.InstanceSegmentati
 
 						if (all_model_list.contains(cleanModelName)) {
 							Log.d("model present", "✅ Model present: $cleanModelName")
+							if (model_hash_local != model_hash_online)
+								Log.e("ModelIntegrity", "❌ Hash mismatch. Model may be corrupted or tampered.")
+							else {
+								Log.d("ModelIntegrity", "✅ Model hash matches")
+								integrity_check = true
+							}
+
 							if (selectedModel != cleanModelName){
 								selectedModel = cleanModelName
-
+								getModelHash(cleanModelName)
 								val modelfileLoaded = File(filesDir, "models/$cleanModelName")
+								model_hash_local =( calculateSHA256(modelfileLoaded))
+								Log.d("model hash local Function", model_hash_local)
+								getModelHash(cleanModelName)
 								if(calculateSHA256(modelfileLoaded) != model_hash_online){
 									Log.e("ModelIntegrity", "❌ Hash mismatch. Model may be corrupted or tampered.")
 								}
 								else
 								{
 									Log.d("ModelIntegrity", "✅ Model hash matches")
+									integrity_check = true
 								}
 								initializeSegmentationModel()
 								fetchImage(URL(imageUrl))
@@ -625,6 +587,9 @@ class MainActivity : AppCompatActivity(),InstanceSegmentation.InstanceSegmentati
 										).show()
 										Log.d("MainActivity", "📁 Model file path: ${modelFile.absolutePath}")
 										selectedModel = cleanModelName
+										model_hash_local = calculateSHA256(modelFile)
+										Log.d("model hash local Function", model_hash_local)
+										getModelHash(cleanModelName)
 
 										//checking hash of model
 										if(calculateSHA256(modelFile) != model_hash_online){
@@ -633,6 +598,7 @@ class MainActivity : AppCompatActivity(),InstanceSegmentation.InstanceSegmentati
 										else
 										{
 											Log.d("ModelIntegrity", "✅ Model hash matches")
+											integrity_check = true
 
 										}
 
@@ -706,6 +672,7 @@ fun downloadModelToLocal(context: Context, modelUrl: String, modelFileName: Stri
 					}
 				}
 				Log.d("ModelDownload", "✅ Model saved at: ${outFile.absolutePath}")
+				getModelHash(modelFileName)
 				onComplete(outFile)
 			} catch (e: Exception) {
 				Log.e("ModelDownload", "❌ Error saving model", e)
@@ -850,12 +817,13 @@ private fun getPoint(device_uuid: String) {
 
 		})
 	}
+
+
 	private fun getModelHash(model_name: String) {
 		val client = OkHttpClient()
 
-		val urlBuilder = "${Constants.BASE_URL}/classification-models/classification-models".toHttpUrlOrNull()
-			?.newBuilder()
-			?.addQueryParameter("model_name", model_name)
+		// Use path parameter instead of query parameter
+		val urlBuilder = "${Constants.BASE_URL}/classification-models/classification-models/$model_name".toHttpUrlOrNull()
 
 		if (urlBuilder == null) {
 			Log.e("StatusUpdate", "Invalid URL")
@@ -863,13 +831,13 @@ private fun getPoint(device_uuid: String) {
 		}
 
 		val request = Request.Builder()
-			.url(urlBuilder.build())
+			.url(urlBuilder)
 			.get()
 			.build()
 
 		client.newCall(request).enqueue(object : Callback {
 			override fun onFailure(call: Call, e: IOException) {
-				Log.e("StatusUpdate", "Failed to fetch model info: ${e.message}")
+				Log.e("call model hash api", "Failed to fetch model info: ${e.message}")
 			}
 
 			override fun onResponse(call: Call, response: Response) {
@@ -881,19 +849,18 @@ private fun getPoint(device_uuid: String) {
 						try {
 							val jsonObject = JSONObject(it)
 							model_hash_online = jsonObject.getString("model_hash")
+							Log.d("modelHash", "onResponse: Model hash: $model_hash_online")
 
-//							Log.d("StatusUpdate", "Extracted total_done_jobs: $total_done_jobs")
-
+							// You can now use model_hash_online as needed
 
 						} catch (e: JSONException) {
 							Log.e("StatusUpdate", "JSON parsing error: ${e.message}")
 						}
 					}
 				} else {
-					Log.e("StatusUpdate", "Failed to fetch user name. Code: ${response.code}")
+					Log.e("StatusUpdate", "Failed to fetch model info. Code: ${response.code}")
 				}
 			}
-
 		})
 	}
 
