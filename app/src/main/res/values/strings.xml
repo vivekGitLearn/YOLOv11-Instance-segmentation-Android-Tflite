@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">YOLOv11 Instance Segmentation</string>
+    <string name="gsl_points">GSL_Points</string>
+    <string name="earning">Earning</string>
 </resources>

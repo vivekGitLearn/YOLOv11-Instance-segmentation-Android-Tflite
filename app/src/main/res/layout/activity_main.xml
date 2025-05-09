@@ -13,344 +13,76 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="20dp"
-
-        android:layout_gravity="center|center_horizontal|center_vertical"
-        android:orientation="horizontal">
-
-        <Spinner
-            android:id="@+id/spinnerModels"
-            android:layout_width="231dp"
-            android:layout_height="wrap_content"
-            android:layout_margin="2dp"
-            android:layout_weight="1"
-            android:textAlignment="center"
-            app:layout_constraintBottom_toTopOf="@+id/buttonSelectImage"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintHorizontal_bias="0.311"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintVertical_bias="0.913" />
-
-        <Switch
-            android:id="@+id/videoSwitch"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="VIDEO STREAM" />
-
-
-    </LinearLayout>
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_margin="16dp"
-        android:orientation="horizontal"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent">
-
-        <Button
-            android:id="@+id/buttonSelectImage"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Select Image"
-            app:layout_constraintBottom_toTopOf="@+id/previewView"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintHorizontal_bias="0.383"
-            app:layout_constraintStart_toStartOf="parent"
-            android:visibility="gone"/>
-
-        <Button
-            android:id="@+id/buttonSelectVideo"
-            android:layout_width="wrap_content"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:text="Select Video"
-            app:layout_constraintBottom_toTopOf="@+id/previewView"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintHorizontal_bias="0.357"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/buttonSelectImage"
-            app:layout_constraintVertical_bias="0.531"
-            android:visibility="gone"/>
-    </LinearLayout>
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginHorizontal="16dp"
-        android:orientation="horizontal">
-
-        <Button
-            android:id="@+id/ApiButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Load Image From Api"
-            android:visibility="gone"/>
-
-    </LinearLayout>
-
-    <!-- Camera Preview -->
-
-    <!-- Image Overlay -->
-
-    <androidx.camera.view.PreviewView
-        android:id="@+id/previewView"
-        android:layout_width="387dp"
-        android:layout_height="325dp"
-        android:visibility="gone"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintDimensionRatio="3:4"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.333"
-        app:layout_constraintStart_toStartOf="parent">
-
-        <VideoView
-            android:id="@+id/ivTopVideo"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content" />
-    </androidx.camera.view.PreviewView>
-
-    <ImageView
-        android:id="@+id/ivTop"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:visibility="gone"
-        app:layout_constraintBottom_toBottomOf="@id/previewView"
-        app:layout_constraintEnd_toEndOf="@id/previewView"
-        app:layout_constraintStart_toStartOf="@id/previewView"
-        app:layout_constraintTop_toTopOf="@id/previewView" />
-
-
-    <!-- Model Selection Dropdown (Spinner) -->
-
-    <!-- Button to Select Image -->
-
-    <!-- Processing Speed Information -->
-
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_margin="16dp"
         android:orientation="vertical"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent">
+        android:layout_marginLeft="20dp"
+        >
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Profile"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/user_email"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Gmail"
+            android:textSize="15sp"
+            />
+        <TextView
+            android:id="@+id/user_name"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="UserName"
+            android:textSize="15sp"
+            />
+        <TextView
+            android:id="@+id/user_client_id"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="ClientID"
+            android:textSize="15sp"
+            />
+
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
+        android:orientation="vertical"
+        android:layout_marginLeft="20dp"
+        >
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Speed (in milliseconds)"
-            android:textSize="16sp"
+            android:text="@string/earning"
+            android:textSize="18sp"
             android:textStyle="bold" />
-
-        <LinearLayout
-            android:layout_width="match_parent"
+        <TextView
+            android:id="@+id/earning_value"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_margin="2dp"
-            android:orientation="horizontal">
+            android:text="@string/gsl_points"
+            android:textSize="15sp"/>
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Preprocess: "
-                android:textStyle="bold" />
-
-            <TextView
-                android:id="@+id/tvPreprocess"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content" />
-        </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_margin="2dp"
-            android:orientation="horizontal">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Inference: "
-                android:textStyle="bold" />
-
-            <TextView
-                android:id="@+id/tvInference"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content" />
-        </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_margin="2dp"
-            android:orientation="horizontal">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Postprocess: "
-                android:textStyle="bold" />
-
-            <TextView
-                android:id="@+id/tvPostprocess"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content" />
-
-        </LinearLayout>
-        <!--        <LinearLayout-->
-        <!--            android:layout_width="match_parent"-->
-        <!--            android:layout_height="wrap_content"-->
-        <!--            android:layout_margin="2dp"-->
-        <!--            android:orientation="horizontal">-->
-        <!--            <TextView-->
-        <!--                android:textStyle="bold"-->
-        <!--                android:layout_width="wrap_content"-->
-        <!--                android:layout_height="wrap_content"-->
-        <!--                android:text="Total Frame Read: "/>-->
-        <!--            <TextView-->
-        <!--                android:id="@+id/totalFrameRead"-->
-        <!--                android:layout_width="wrap_content"-->
-        <!--                android:layout_height="wrap_content"/>-->
-        <!--            </LinearLayout>-->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_margin="2dp"
-            android:orientation="horizontal">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Total Frame Processed: "
-                android:textStyle="bold" />
-
-            <TextView
-                android:id="@+id/totalFrameProcessed"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content" />
-        </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Total Time In Minutes: "
-                android:textStyle="bold" />
-
-            <TextView
-                android:id="@+id/video_stop_time"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textStyle="bold" />
-
-        </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_margin="2dp"
-            android:orientation="horizontal">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="result: "
-                android:textStyle="bold" />
-
-            <TextView
-                android:id="@+id/result_model"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content" />
-        </LinearLayout>
-
-<!--        <LinearLayout-->
-<!--            android:layout_width="match_parent"-->
-<!--            android:layout_height="wrap_content"-->
-<!--            android:layout_margin="2dp"-->
-<!--            android:orientation="vertical">-->
-
-<!--            <TextView-->
-<!--                android:layout_width="match_parent"-->
-<!--                android:layout_height="wrap_content"-->
-<!--                android:text="Video detail"-->
-<!--                android:textAlignment="center"-->
-<!--                android:textStyle="bold" />-->
-
-            <LinearLayout
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="TOTAL FRAME: "
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/total_frame_count"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:textStyle="bold" />
-            </LinearLayout>
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal">
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Websocket ID: "
-                android:textStyle="bold"/>
-            <TextView
-                android:id="@+id/websocket_id"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textStyle="bold" />
-        </LinearLayout>
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal">
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Message: "
-                android:textStyle="bold"/>
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:id="@+id/ws_message"
-                android:textStyle="bold" />
-        </LinearLayout>
-<!--            &lt;!&ndash;            <LinearLayout&ndash;&gt;-->
-<!--            &lt;!&ndash;                android:layout_width="wrap_content"&ndash;&gt;-->
-<!--            &lt;!&ndash;                android:layout_height="wrap_content"&ndash;&gt;-->
-<!--            &lt;!&ndash;                android:orientation="horizontal"&ndash;&gt;-->
-<!--            &lt;!&ndash;                >&ndash;&gt;-->
-
-<!--            &lt;!&ndash;                <TextView&ndash;&gt;-->
-<!--            &lt;!&ndash;                    android:layout_width="wrap_content"&ndash;&gt;-->
-<!--            &lt;!&ndash;                    android:layout_height="wrap_content"&ndash;&gt;-->
-<!--            &lt;!&ndash;                    android:text="Video processing time in Second: "&ndash;&gt;-->
-<!--            &lt;!&ndash;                    android:textStyle="bold" />&ndash;&gt;-->
-<!--            &lt;!&ndash;                <TextView&ndash;&gt;-->
-<!--            &lt;!&ndash;                    android:layout_width="wrap_content"&ndash;&gt;-->
-<!--            &lt;!&ndash;                    android:layout_height="wrap_content"&ndash;&gt;-->
-<!--            &lt;!&ndash;                    android:id="@+id/video_start_time"&ndash;&gt;-->
-<!--            &lt;!&ndash;                    android:textStyle="bold"/>&ndash;&gt;-->
-<!--            &lt;!&ndash;            </LinearLayout>&ndash;&gt;-->
-
-<!--        </LinearLayout>-->
 
     </LinearLayout>
+
+
+    <TextView
+        android:id="@+id/inference_status"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:textStyle="bold"
+        android:textSize="20sp"
+        android:layout_marginLeft="50dp"
+        android:layout_marginTop="50dp"/>
+
+
 </LinearLayout>
 
 
