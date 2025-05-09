@@ -71,6 +71,7 @@ class MainActivity : AppCompatActivity(),InstanceSegmentation.InstanceSegmentati
 	var result_of_inference = ""
 	var task_status = "not_started"
 	var poling_number = 0
+	var model_hash_online = ""
 	// Declare sharedPref at the class level
 	private lateinit var sharedPref: SharedPreferences
 
@@ -595,13 +596,13 @@ class MainActivity : AppCompatActivity(),InstanceSegmentation.InstanceSegmentati
 								selectedModel = cleanModelName
 
 								val modelfileLoaded = File(filesDir, "models/$cleanModelName")
-//								if(calculateSHA256(modelfileLoaded) != modelHash){
-//									Log.e("ModelIntegrity", "❌ Hash mismatch. Model may be corrupted or tampered.")
-//								}
-//								else
-//								{
-//									Log.d("ModelIntegrity", "✅ Model hash matches")
-//								}
+								if(calculateSHA256(modelfileLoaded) != model_hash_online){
+									Log.e("ModelIntegrity", "❌ Hash mismatch. Model may be corrupted or tampered.")
+								}
+								else
+								{
+									Log.d("ModelIntegrity", "✅ Model hash matches")
+								}
 								initializeSegmentationModel()
 								fetchImage(URL(imageUrl))
 							}
@@ -625,15 +626,15 @@ class MainActivity : AppCompatActivity(),InstanceSegmentation.InstanceSegmentati
 										Log.d("MainActivity", "📁 Model file path: ${modelFile.absolutePath}")
 										selectedModel = cleanModelName
 
-//										//checking hash of model
-//										if(calculateSHA256(modelFile) != modelHash){
-//											Log.e("ModelIntegrity", "❌ Hash mismatch. Model may be corrupted or tampered.")
-//										}
-//										else
-//										{
-//											Log.d("ModelIntegrity", "✅ Model hash matches")
-//											binding.wsMessage.text = cleanModelName
-//										}
+										//checking hash of model
+										if(calculateSHA256(modelFile) != model_hash_online){
+											Log.e("ModelIntegrity", "❌ Hash mismatch. Model may be corrupted or tampered.")
+										}
+										else
+										{
+											Log.d("ModelIntegrity", "✅ Model hash matches")
+
+										}
 
 
 
@@ -849,6 +850,53 @@ private fun getPoint(device_uuid: String) {
 
 		})
 	}
+	private fun getModelHash(model_name: String) {
+		val client = OkHttpClient()
+
+		val urlBuilder = "${Constants.BASE_URL}/classification-models/classification-models".toHttpUrlOrNull()
+			?.newBuilder()
+			?.addQueryParameter("model_name", model_name)
+
+		if (urlBuilder == null) {
+			Log.e("StatusUpdate", "Invalid URL")
+			return
+		}
+
+		val request = Request.Builder()
+			.url(urlBuilder.build())
+			.get()
+			.build()
+
+		client.newCall(request).enqueue(object : Callback {
+			override fun onFailure(call: Call, e: IOException) {
+				Log.e("StatusUpdate", "Failed to fetch model info: ${e.message}")
+			}
+
+			override fun onResponse(call: Call, response: Response) {
+				if (response.isSuccessful) {
+					val responseData = response.body?.string()
+					Log.d("StatusUpdate", "Response: $responseData")
+
+					responseData?.let {
+						try {
+							val jsonObject = JSONObject(it)
+							model_hash_online = jsonObject.getString("model_hash")
+
+//							Log.d("StatusUpdate", "Extracted total_done_jobs: $total_done_jobs")
+
+
+						} catch (e: JSONException) {
+							Log.e("StatusUpdate", "JSON parsing error: ${e.message}")
+						}
+					}
+				} else {
+					Log.e("StatusUpdate", "Failed to fetch user name. Code: ${response.code}")
+				}
+			}
+
+		})
+	}
+
 
 
 }
