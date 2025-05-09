@@ -10,5 +10,5 @@ To use this repository for any custom **YOLOv8 and above** Instance Segmentation
 
 1. **Clone the Repository**
    ```bash
-   git clone <git@github.com:vivekGitLearn/YOLOv11-Instance-segmentation-Android-Tflite.git>
-   cd <YOLOv11-Instance-segmentation-Android-Tflite>
+   git clone git@github.com:vivekGitLearn/YOLOv11-Instance-segmentation-Android-Tflite.git
+   cd YOLOv11-Instance-segmentation-Android-Tflite
